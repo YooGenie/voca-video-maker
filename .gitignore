@@ -27,6 +27,23 @@ go.work.sum
 # env file
 .env
 
+# config files with sensitive data
+config/config.json
+
 # Editor/IDE
 # .idea/
 # .vscode/
+
+/template/
+/images/
+/audio/
+/videos/
+/font/
+
+# Video files
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+*.sql
