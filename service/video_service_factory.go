@@ -20,8 +20,11 @@ func (f *VideoServiceFactory) CreateVideo(ctx context.Context, dateFlag *string,
 	case "W":
 		englishWordService := NewEnglishWordService()
 		englishWordService.CreateWordsReels(ctx, targetDate, serviceType)
+	case "I":
+		englishIdiomService := NewEnglishIdiomService()
+		englishIdiomService.CreateIdiomsReels(ctx, targetDate, serviceType)
 	default:
-		log.Fatalf("잘못된 서비스 타입입니다. W 중 하나를 선택하세요.")
+		log.Fatalf("잘못된 서비스 타입입니다. W, I 중 하나를 선택하세요.")
 	}
 
 	if err != nil {

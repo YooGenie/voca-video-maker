@@ -57,7 +57,7 @@ func (s *ImageService) GenerateBasicImages(
 
 	// 폰트 옵션 설정
 	face, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
-		Size:    100, // 폰트 크기 한글
+		Size:    120, // 폰트 크기 한글
 		DPI:     72,  // DPI (Dots Per Inch)
 		Hinting: font.HintingNone,
 	})
