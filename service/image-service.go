@@ -456,3 +456,87 @@ func (s *ImageService) GenerateOptionalImage(
 
 	return nil
 }
+
+// GenerateTitleImage creates an image with a centered title.
+func (s *ImageService) GenerateTitleImage(title, imagePath, outputPath string) error {
+	// 1. Load image
+	existingImageFile, err := os.Open(imagePath)
+	if err != nil {
+		return fmt.Errorf("could not open image file: %v", err)
+	}
+	defer existingImageFile.Close()
+
+	// Decode PNG image
+	img, err := png.Decode(existingImageFile)
+	if err != nil {
+		return fmt.Errorf("failed to decode image: %v", err)
+	}
+
+	// 2. Load font
+	fontBytes, err := os.ReadFile(config.Config.FontPath)
+	if err != nil {
+		return fmt.Errorf("could not read font file: %v", err)
+	}
+
+	parsedFont, err := opentype.Parse(fontBytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse font: %v", err)
+	}
+
+	// Set font options
+	face, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
+		Size:    120, // Font size
+		DPI:     72,  // DPI (Dots Per Inch)
+		Hinting: font.HintingNone,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create font face: %v", err)
+	}
+	defer face.Close()
+
+	// 3. Create image
+	rgba := image.NewRGBA(img.Bounds())
+	draw.Draw(rgba, rgba.Bounds(), img, image.Point{}, draw.Src)
+
+	textColor := color.RGBA{R: 255, G: 255, B: 255, A: 255} // White
+
+	// Calculate text position
+	textBounds, _ := font.BoundString(face, title)
+	textWidth := (textBounds.Max.X - textBounds.Min.X).Ceil()
+	textHeight := (textBounds.Max.Y - textBounds.Min.Y).Ceil()
+
+	imgWidth := rgba.Bounds().Dx()
+	imgHeight := rgba.Bounds().Dy()
+
+	pointX := (imgWidth - textWidth) / 2
+	pointY := (imgHeight + textHeight) / 2
+
+	point := fixed.Point26_6{
+		X: fixed.I(pointX),
+		Y: fixed.I(pointY),
+	}
+
+	// Draw text on image
+	d := &font.Drawer{
+		Dst:  rgba,
+		Src:  image.NewUniform(textColor),
+		Face: face,
+		Dot:  point,
+	}
+	d.DrawString(title)
+
+	// Save image
+	outputFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("could not create output file: %v", err)
+	}
+	defer outputFile.Close()
+
+	err = png.Encode(outputFile, rgba)
+	if err != nil {
+		return fmt.Errorf("failed to encode image: %v", err)
+	}
+
+	fmt.Printf("Title image created successfully: %s\n", outputPath)
+	return nil
+}
