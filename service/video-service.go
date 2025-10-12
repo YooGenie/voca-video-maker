@@ -7,15 +7,23 @@ import (
 	"path/filepath"
 )
 
+// VideoConfig 비디오 설정을 담는 구조체
+type VideoConfig struct {
+	Width  int
+	Height int
+}
+
 // VideoService 비디오 생성 서비스
 type VideoService struct {
 	imageService *ImageService
+	config       VideoConfig // 비디오 설정 추가
 }
 
 // NewVideoService 새로운 비디오 서비스 생성
-func NewVideoService(imageService *ImageService) *VideoService {
+func NewVideoService(imageService *ImageService, config VideoConfig) *VideoService {
 	return &VideoService{
 		imageService: imageService,
+		config:       config,
 	}
 }
 
@@ -25,11 +33,6 @@ func (s *VideoService) CreateSilentVideo(
 	outputPath string,
 	duration float64,
 ) error {
-	// ffmpeg 명령어 구성
-	// -loop 1: 이미지를 반복
-	// -i imagePath: 입력 이미지
-	// -c:v libx264: 비디오 코덱
-	// -t duration: 지속 시간 설정
 	cmd := exec.Command("ffmpeg",
 		"-loop", "1",
 		"-i", imagePath,
@@ -38,14 +41,14 @@ func (s *VideoService) CreateSilentVideo(
 		"-profile:v", "baseline",
 		"-level", "3.0",
 		"-crf", "25",
-		"-vf", "scale=1080:1920,fps=30",
+		"-vf", fmt.Sprintf("scale=%d:%d,fps=30", s.config.Width, s.config.Height),
 		"-f", "lavfi",
 		"-i", fmt.Sprintf("anullsrc=channel_layout=stereo:sample_rate=44100"),
 		"-c:a", "aac",
 		"-b:a", "128k",
 		"-ar", "44100",
 		"-t", fmt.Sprintf("%.2f", duration),
-		"-y", // 기존 파일 덮어쓰기
+		"-y",
 		outputPath,
 	)
 
@@ -62,14 +65,6 @@ func (s *VideoService) CreateVideoWithAudio(
 	outputPath string,
 	duration float64,
 ) error {
-	// ffmpeg 명령어 구성
-	// -loop 1: 이미지를 반복
-	// -i imagePath: 입력 이미지
-	// -i audioPath: 입력 오디오
-	// -c:v libx264: 비디오 코덱
-	// -c:a aac: 오디오 코덱
-	// -shortest: 오디오 길이에 맞춰 비디오 종료
-	// -t duration: 지속 시간 설정
 	cmd := exec.Command("ffmpeg",
 		"-loop", "1",
 		"-i", imagePath,
@@ -79,7 +74,7 @@ func (s *VideoService) CreateVideoWithAudio(
 		"-profile:v", "baseline",
 		"-level", "3.0",
 		"-crf", "25",
-		"-vf", "scale=1080:1920,fps=30",
+		"-vf", fmt.Sprintf("scale=%d:%d,fps=30", s.config.Width, s.config.Height),
 		"-c:a", "aac",
 		"-b:a", "128k",
 		"-ar", "44100",
@@ -88,7 +83,68 @@ func (s *VideoService) CreateVideoWithAudio(
 		"-fflags", "+genpts",
 		"-movflags", "+faststart",
 		"-t", fmt.Sprintf("%.2f", duration),
-		"-y", // 기존 파일 덮어쓰기
+		"-y",
+		outputPath,
+	)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+// CreateVideoToAudioLength 이미지와 음성을 합쳐 오디오 길이에 맞는 영상을 생성합니다
+func (s *VideoService) CreateVideoToAudioLength(
+	imagePath string,
+	audioPath string,
+	outputPath string,
+) error {
+	cmd := exec.Command("ffmpeg",
+		"-loop", "1",
+		"-i", imagePath,
+		"-i", audioPath,
+		"-c:v", "libx264",
+		"-preset", "fast",
+		"-profile:v", "baseline",
+		"-level", "3.0",
+		"-crf", "25",
+		"-vf", fmt.Sprintf("scale=%d:%d,format=yuv420p,fps=30", s.config.Width, s.config.Height),
+		"-c:a", "aac",
+		"-b:a", "128k",
+		"-ar", "44100",
+		"-shortest", // 오디오 길이에 맞춰 비디오 종료
+		"-y",        // 기존 파일 덮어쓰기
+		outputPath,
+	)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+// CreateVideoWithAudioAndDuration 이미지와 음성을 합쳐 지정된 시간만큼의 영상을 생성합니다
+func (s *VideoService) CreateVideoWithAudioAndDuration(
+	imagePath string,
+	audioPath string,
+	outputPath string,
+	duration float64,
+) error {
+	cmd := exec.Command("ffmpeg",
+		"-loop", "1",
+		"-i", imagePath,
+		"-i", audioPath,
+		"-c:v", "libx264",
+		"-preset", "fast",
+		"-profile:v", "baseline",
+		"-level", "3.0",
+		"-crf", "25",
+		"-vf", fmt.Sprintf("scale=%d:%d,format=yuv420p,fps=30", s.config.Width, s.config.Height),
+		"-c:a", "aac",
+		"-b:a", "128k",
+		"-ar", "44100",
+		"-t", fmt.Sprintf("%.2f", duration),
+		"-y",
 		outputPath,
 	)
 
@@ -219,7 +275,7 @@ func (s *VideoService) CreateVideoWithKorean(
 		"-profile:v", "baseline",
 		"-level", "3.0",
 		"-crf", "25",
-		"-vf", "scale=1080:1920,format=yuv420p,fps=30",
+		"-vf", fmt.Sprintf("scale=%d:%d,format=yuv420p,fps=30", s.config.Width, s.config.Height),
 		"-c:a", "aac",
 		"-b:a", "128k",
 		"-ar", "44100",
@@ -297,7 +353,7 @@ func (s *VideoService) CreateVideoWithEnglish(
 		"-profile:v", "baseline",
 		"-level", "3.0",
 		"-crf", "25",
-		"-vf", "scale=1080:1920,format=yuv420p,fps=30",
+		"-vf", fmt.Sprintf("scale=%d:%d,format=yuv420p,fps=30", s.config.Width, s.config.Height),
 		"-c:a", "aac",
 		"-b:a", "128k",
 		"-ar", "44100",
@@ -398,9 +454,8 @@ func (s *VideoService) CreateVideoFromImages(
 
 // ConcatenateVideos 여러 영상을 하나로 합칩니다
 func (s *VideoService) ConcatenateVideos(
-	videoPrefix string,
+	videoPaths []string,
 	outputPath string,
-	count int,
 ) error {
 	// videos 디렉토리에서 영상 파일들 찾기
 	videosDir := "videos"
@@ -414,8 +469,7 @@ func (s *VideoService) ConcatenateVideos(
 	defer file.Close()
 
 	// 각 영상 파일을 목록에 추가
-	for i := 0; i < count; i++ {
-		videoPath := fmt.Sprintf("%s_%d.mp4", videoPrefix, i)
+	for _, videoPath := range videoPaths {
 		line := fmt.Sprintf("file '%s'\n", videoPath)
 		if _, err := file.WriteString(line); err != nil {
 			return fmt.Errorf("파일 목록 작성 실패: %v", err)
@@ -528,6 +582,52 @@ func (s *VideoService) GenerateKoreanAudioFromText(
 	return nil
 }
 
+// GenerateKoreanAudioWithRate 한국어 텍스트로부터 지정된 속도의 음성을 생성합니다
+func (s *VideoService) GenerateKoreanAudioWithRate(
+	text string,
+	outputPath string,
+	rate int,
+) error {
+	// 임시 aiff 파일 경로
+	tempAiffPath := outputPath[:len(outputPath)-4] + ".aiff"
+
+	// macOS의 say 명령어를 사용하여 aiff 음성 생성 (속도 조절)
+	cmd := exec.Command("say",
+		"-v", "Yuna",
+		"-r", fmt.Sprintf("%d", rate),
+		"-o", tempAiffPath,
+		text,
+	)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("음성 생성 실패: %v", err)
+	}
+
+	// aiff를 mp3로 변환
+	convertCmd := exec.Command("ffmpeg",
+		"-i", tempAiffPath,
+		"-acodec", "libmp3lame",
+		"-ab", "128k",
+		"-y",
+		outputPath,
+	)
+
+	convertCmd.Stdout = os.Stdout
+	convertCmd.Stderr = os.Stderr
+
+	if err := convertCmd.Run(); err != nil {
+		return fmt.Errorf("mp3 변환 실패: %v", err)
+	}
+
+	// 임시 aiff 파일 삭제
+	os.Remove(tempAiffPath)
+
+	return nil
+}
+
 // GenerateNativeEnglishAudio 원어민 수준의 영어 음성을 생성합니다
 func (s *VideoService) GenerateNativeEnglishAudio(text, outputPath string) error {
 	// Python 스크립트로 고품질 영어 음성 생성
@@ -584,80 +684,5 @@ func (s *VideoService) GenerateAllNativeEnglishAudio(englishWords []string, outp
 	}
 
 	fmt.Println("✅ 모든 영어 음성 파일 생성 완료!")
-	return nil
-}
-
-// GenerateAzureEnglishAudio Azure Cognitive Services를 사용한 고품질 영어 음성을 생성합니다
-func (s *VideoService) GenerateAzureEnglishAudio(text, outputPath string) error {
-	// Azure Cognitive Services 사용 (API 키가 필요한 경우)
-	scriptContent := fmt.Sprintf(`#!/usr/bin/env python3
-import requests
-import json
-import os
-
-def generate_azure_english_audio(text, output_path):
-    try:
-        # Azure Cognitive Services 설정
-        subscription_key = "YOUR_AZURE_KEY"  # 실제 사용시 API 키 필요
-        region = "eastus"
-        
-        # 음성 설정 (원어민 수준)
-        voice_name = "en-US-JennyNeural"  # 자연스러운 여성 음성
-        # voice_name = "en-US-GuyNeural"  # 자연스러운 남성 음성
-        
-        url = f"https://{region}.tts.speech.microsoft.com/cognitiveservices/v1"
-        
-        headers = {
-            "Ocp-Apim-Subscription-Key": subscription_key,
-            "Content-Type": "application/ssml+xml",
-            "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3"
-        }
-        
-        # SSML (Speech Synthesis Markup Language) 사용
-        ssml = f'''<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
-            <voice name="{voice_name}">
-                <prosody rate="medium" pitch="medium">
-                    {text}
-                </prosody>
-            </voice>
-        </speak>'''
-        
-        response = requests.post(url, headers=headers, data=ssml.encode('utf-8'))
-        
-        if response.status_code == 200:
-            with open(output_path, 'wb') as f:
-                f.write(response.content)
-            print(f"✅ Azure 영어 음성 생성 완료: {output_path}")
-            return True
-        else:
-            print(f"❌ Azure API 오류: {response.status_code}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Azure 음성 생성 실패: {e}")
-        return False
-
-# 영어 텍스트
-text = "%s"
-output_file = "%s"
-
-generate_azure_english_audio(text, output_file)
-`, text, outputPath)
-
-	// 임시 스크립트 파일 생성
-	scriptFile := "temp_azure_audio.py"
-	err := os.WriteFile(scriptFile, []byte(scriptContent), 0644)
-	if err != nil {
-		return fmt.Errorf("Azure 음성 스크립트 파일 생성 실패: %v", err)
-	}
-	defer os.Remove(scriptFile)
-
-	// Python 스크립트 실행
-	cmd := exec.Command("python3", scriptFile)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("Azure 음성 생성 스크립트 실행 실패: %v, 출력: %s", err, string(output))
-	}
-
 	return nil
 }

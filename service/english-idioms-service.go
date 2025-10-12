@@ -59,9 +59,9 @@ if err != nil {
 }
 log.Println("이미지 생성 완료!")
 
-// 2. 비디오 서비스 생성
-videoService := NewVideoService(imageService)
-
+	// 2. 비디오 서비스 생성
+	reelsConfig := VideoConfig{Width: 1080, Height: 1920}
+	videoService := NewVideoService(imageService, reelsConfig)
 // 3. 각 단어에 대한 음성 파일 생성
 audioDir := "audio"
 if err := os.MkdirAll(audioDir, 0755); err != nil {
@@ -124,12 +124,15 @@ log.Println("개별 영상 생성 완료!")
 // 지정된 날짜를 YYMMDD 형식으로 생성
 finalFileName := fmt.Sprintf("%02d%02d%02d.mp4", targetDate.Year()%100, targetDate.Month(), targetDate.Day())
 
-err = videoService.ConcatenateVideos(
-	"video",       // 영상 파일 접두사
-	finalFileName,      // 최종 출력 파일
-	wordCount * 2,          // 총 영상 개수 (동적)
-)
+	videoPaths := make([]string, 0, wordCount*2)
+	for i := 0; i < wordCount*2; i++ {
+		videoPaths = append(videoPaths, fmt.Sprintf("video_%d.mp4", i))
+	}
 
+	err = videoService.ConcatenateVideos(
+		videoPaths,
+		finalFileName,
+	)
 if err != nil {
 	log.Fatalf("영상 합치기 실패: %v", err)
 }
