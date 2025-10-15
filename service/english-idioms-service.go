@@ -81,7 +81,7 @@ for i, word := range eng {
 log.Println("🎤 한국어 단어 음성을 생성합니다...")
 for i, word := range kor {
 	audioPath := fmt.Sprintf("%s/kor_%d.mp3", audioDir, i)
-	if err := videoService.GenerateKoreanAudioFromText(word, audioPath); err != nil {
+	if err := videoService.GenerateKoreanAudioWithRate(word, audioPath, 135); err != nil {
 		log.Printf("한국어 음성 생성 실패 (%s): %v", word, err)
 	}
 }

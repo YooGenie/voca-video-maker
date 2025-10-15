@@ -18,7 +18,7 @@ func NewLongformWordService() *LongformWordService {
 	return &LongformWordService{}
 }
 
-func (s *LongformWordService) CreateLongformWordsReels(ctx context.Context, targetDate time.Time, serviceType *string) {
+func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDate time.Time, serviceType *string) {
 	title, longformWords, err := s.getTitleByDate(ctx, targetDate)
 	if err != nil {
 		log.Fatalf("데이터 조회 실패: %v", err)
@@ -96,7 +96,7 @@ videosDir := "videos"
 	log.Printf("한국어 뜻 목록: %v", meanings)
 	for i, meaning := range meanings {
 		audioPath := fmt.Sprintf("%s/kor_%d.mp3", audioDir, i)
-		if err := videoService.GenerateKoreanAudioFromText(meaning, audioPath); err != nil {
+		if err := videoService.GenerateKoreanAudioWithRate(meaning, audioPath, 125); err != nil {
 			log.Printf("한국어 음성 생성 실패 (%s): %v", meaning, err)
 		}
 	}
@@ -181,7 +181,7 @@ videosDir := "videos"
 
 func (s *LongformWordService) createTitleVideo(videoService *VideoService, audioDir, videosDir string) (string, error) {
 	// 음성 속도 설정 (기본값: 175)
-	slowRate := 125
+	slowRate := 123
 
 	// 1. 두 부분으로 나누어 음성 파일 생성
 	audioPart1Path := filepath.Join(audioDir, "title_part1.mp3")
