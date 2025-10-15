@@ -538,50 +538,6 @@ func (s *VideoService) GenerateAudioFromText(
 	return nil
 }
 
-// GenerateKoreanAudioFromText 한국어 텍스트로부터 음성을 생성합니다
-func (s *VideoService) GenerateKoreanAudioFromText(
-	text string,
-	outputPath string,
-) error {
-	// 임시 aiff 파일 경로
-	tempAiffPath := outputPath[:len(outputPath)-4] + ".aiff"
-
-	// macOS의 say 명령어를 사용하여 aiff 음성 생성
-	cmd := exec.Command("say",
-		"-v", "Yuna", // 한국어 음성 (Yuna는 한국어 음성)
-		"-o", tempAiffPath,
-		text,
-	)
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("음성 생성 실패: %v", err)
-	}
-
-	// aiff를 mp3로 변환
-	convertCmd := exec.Command("ffmpeg",
-		"-i", tempAiffPath,
-		"-acodec", "libmp3lame",
-		"-ab", "128k",
-		"-y", // 기존 파일 덮어쓰기
-		outputPath,
-	)
-
-	convertCmd.Stdout = os.Stdout
-	convertCmd.Stderr = os.Stderr
-
-	if err := convertCmd.Run(); err != nil {
-		return fmt.Errorf("mp3 변환 실패: %v", err)
-	}
-
-	// 임시 aiff 파일 삭제
-	os.Remove(tempAiffPath)
-
-	return nil
-}
-
 // GenerateKoreanAudioWithRate 한국어 텍스트로부터 지정된 속도의 음성을 생성합니다
 func (s *VideoService) GenerateKoreanAudioWithRate(
 	text string,

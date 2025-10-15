@@ -25,7 +25,7 @@ func (f *VideoServiceFactory) CreateVideo(ctx context.Context, dateFlag *string,
 		englishIdiomService.CreateIdiomsReels(ctx, targetDate, serviceType)
 	case "L":
 		longformWordService := NewLongformWordService()
-		longformWordService.CreateLongformWordsReels(ctx, targetDate, serviceType)
+		longformWordService.CreateLongformWords(ctx, targetDate, serviceType)
 	default:
 		log.Fatalf("잘못된 서비스 타입입니다. W, I, L 중 하나를 선택하세요.")
 	}
