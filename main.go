@@ -5,7 +5,7 @@ import (
 	"flag"
 
 	"auto-video-service/config"
-	"auto-video-service/service"
+	"auto-video-service/factory"
 )
 
 func main() {
@@ -22,6 +22,6 @@ func main() {
 
 	ctx := context.Background()
 
-	factory := service.NewVideoServiceFactory()
+	factory := factory.NewVideoServiceFactory()
 	factory.CreateVideo(ctx, dateFlag, serviceType)
 }
