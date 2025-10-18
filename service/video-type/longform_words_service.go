@@ -1,6 +1,7 @@
-package service
+package video_type
 
 import (
+	"auto-video-service/core"
 	"auto-video-service/entity"
 	"auto-video-service/repository"
 	"context"
@@ -24,7 +25,7 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 		log.Fatalf("데이터 조회 실패: %v", err)
 	}
 
-	imageService := NewImageService()
+	imageService := core.NewImageService()
 
 	// 1. 타이틀 이미지 생성
 	err = imageService.GenerateTitleImage(
@@ -62,8 +63,8 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 	}
 	log.Println("이미지 생성 완료!")
 
-	longformConfig := VideoConfig{Width: 1920, Height: 1080}
-	videoService := NewVideoService(imageService, longformConfig)
+	longformConfig := core.VideoConfig{Width: 1920, Height: 1080}
+	videoService := core.NewVideoService(imageService, longformConfig)
 
 	audioDir := "audio"
 	if err := os.MkdirAll(audioDir, 0755); err != nil {
@@ -179,7 +180,7 @@ videosDir := "videos"
 	fmt.Println("=" + fmt.Sprintf("%*s", 40, "") + "=")
 }
 
-func (s *LongformWordService) createTitleVideo(videoService *VideoService, audioDir, videosDir string) (string, error) {
+func (s *LongformWordService) createTitleVideo(videoService *core.VideoService, audioDir, videosDir string) (string, error) {
 	// 음성 속도 설정 (기본값: 175)
 	slowRate := 123
 
