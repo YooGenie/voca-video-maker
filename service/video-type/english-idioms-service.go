@@ -6,9 +6,9 @@ import (
 	"log"
 	"time"
 
-	"auto-video-service/core"
 	"auto-video-service/dto"
 	"auto-video-service/repository"
+	"auto-video-service/service"
 )
 
 type EnglishIdiomService struct{}
@@ -43,7 +43,7 @@ func (s *EnglishIdiomService) CreateIdiomsReels(ctx context.Context, targetDate 
 	}
 
 	// 릴스 제작 서비스 사용
-	reelsService := core.NewReelsCreationService()
+	reelsService := service.NewReelsCreationService()
 	response := reelsService.CreateCompleteReels(ctx, request, contentData, templateConfig)
 
 	if !response.Success {

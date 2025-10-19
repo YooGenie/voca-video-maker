@@ -30,7 +30,7 @@ func (s *ReelsCreationService) CreateCompleteReels(ctx context.Context, request 
 	contentCount := contentData.Count
 
 	// 먼저 컨텐츠 개수를 표시하는 이미지 생성
-	err := imageService.GenerateOptionalImage(
+	err := imageService.SetWordCountOnImage(
 		templateConfig.BaseTemplate,                    // 기본 이미지 템플릿
 		fmt.Sprintf("%d", contentCount),               // contentCount를 문자열로 변환
 		templateConfig.CountTemplate,                  // 출력 파일명
