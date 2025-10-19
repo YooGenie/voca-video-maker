@@ -65,19 +65,19 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 
 	longformConfig := service.VideoConfig{Width: 1920, Height: 1080}
 	videoService := service.NewVideoService(imageService, longformConfig)
+	audioService := service.NewAudioService()
 
 	audioDir := "audio"
 	if err := os.MkdirAll(audioDir, 0755); err != nil {
 		log.Fatalf("audio 디렉토리 생성 실패: %v", err)
 	}
 
-
-videosDir := "videos"
+	videosDir := "videos"
 	if err := os.MkdirAll(videosDir, 0755); err != nil {
 		log.Fatalf("videos 디렉토리 생성 실패: %v", err)
 	}
 
-	titleVideoPath, err := s.createTitleVideo(videoService, audioDir, videosDir)
+	titleVideoPath, err := s.createTitleVideo(videoService, audioService, audioDir, videosDir)
 	if err != nil {
 		log.Fatalf("타이틀 영상 제작 실패: %v", err)
 	}
@@ -88,7 +88,7 @@ videosDir := "videos"
 	log.Printf("영어 단어 목록: %v", words)
 	for i, word := range words {
 		audioPath := fmt.Sprintf("%s/eng_%d.mp3", audioDir, i)
-		if err := videoService.GenerateNativeEnglishAudio(word, audioPath); err != nil {
+		if err := audioService.CreateNativeEnglishAudio(word, audioPath); err != nil {
 			log.Printf("영어 원어민 음성 생성 실패 (%s): %v", word, err)
 		}
 	}
@@ -97,7 +97,7 @@ videosDir := "videos"
 	log.Printf("한국어 뜻 목록: %v", meanings)
 	for i, meaning := range meanings {
 		audioPath := fmt.Sprintf("%s/kor_%d.mp3", audioDir, i)
-		if err := videoService.GenerateKoreanAudioWithRate(meaning, audioPath, 125); err != nil {
+		if err := audioService.CreateKoreanAudioWithRate(meaning, audioPath, 125); err != nil {
 			log.Printf("한국어 음성 생성 실패 (%s): %v", meaning, err)
 		}
 	}
@@ -180,18 +180,18 @@ videosDir := "videos"
 	fmt.Println("=" + fmt.Sprintf("%*s", 40, "") + "=")
 }
 
-func (s *LongformWordService) createTitleVideo(videoService *service.VideoService, audioDir, videosDir string) (string, error) {
+func (s *LongformWordService) createTitleVideo(videoService *service.VideoService, audioService *service.AudioService, audioDir, videosDir string) (string, error) {
 	// 음성 속도 설정 (기본값: 175)
 	slowRate := 123
 
 	// 1. 두 부분으로 나누어 음성 파일 생성
 	audioPart1Path := filepath.Join(audioDir, "title_part1.mp3")
-	if err := videoService.GenerateKoreanAudioWithRate("누워서 영어공부", audioPart1Path, slowRate); err != nil {
+	if err := audioService.CreateKoreanAudioWithRate("누워서 영어공부", audioPart1Path, slowRate); err != nil {
 		return "", fmt.Errorf("타이틀 음성(part1) 생성 실패: %w", err)
 	}
 
 	audioPart2Path := filepath.Join(audioDir, "title_part2.mp3")
-	if err := videoService.GenerateKoreanAudioWithRate("시작합니다", audioPart2Path, slowRate); err != nil {
+	if err := audioService.CreateKoreanAudioWithRate("시작합니다", audioPart2Path, slowRate); err != nil {
 		return "", fmt.Errorf("타이틀 음성(part2) 생성 실패: %w", err)
 	}
 

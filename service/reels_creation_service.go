@@ -61,9 +61,10 @@ func (s *ReelsCreationService) CreateCompleteReels(ctx context.Context, request 
 	}
 	log.Println("이미지 생성 완료!")
 
-	// 2. 비디오 서비스 생성
+	// 2. 서비스 생성
 	reelsConfig := VideoConfig{Width: 1080, Height: 1920}
 	videoService := NewVideoService(imageService, reelsConfig)
+	audioService := NewAudioService()
 
 	// 3. 각 컨텐츠에 대한 음성 파일 생성
 	audioDir := "audio"
@@ -77,7 +78,7 @@ func (s *ReelsCreationService) CreateCompleteReels(ctx context.Context, request 
 	log.Println("🎤 영어 컨텐츠 원어민 음성을 생성합니다...")
 	for i, content := range contentData.Primary {
 		audioPath := fmt.Sprintf("%s/eng_%d.mp3", audioDir, i)
-		if err := videoService.GenerateNativeEnglishAudio(content, audioPath); err != nil {
+		if err := audioService.CreateNativeEnglishAudio(content, audioPath); err != nil {
 			log.Printf("영어 원어민 음성 생성 실패 (%s): %v", content, err)
 		}
 	}
@@ -86,7 +87,7 @@ func (s *ReelsCreationService) CreateCompleteReels(ctx context.Context, request 
 	log.Println("🎤 한국어 컨텐츠 음성을 생성합니다...")
 	for i, content := range contentData.Secondary {
 		audioPath := fmt.Sprintf("%s/kor_%d.mp3", audioDir, i)
-		if err := videoService.GenerateKoreanAudioWithRate(content, audioPath, 175); err != nil {
+		if err := audioService.CreateKoreanAudioWithRate(content, audioPath, 175); err != nil {
 			log.Printf("한국어 음성 생성 실패 (%s): %v", content, err)
 		}
 	}
