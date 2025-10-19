@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestGenerateTitleImage(t *testing.T) {
+func TestSetTitleOnImage(t *testing.T) {
 	// Setup: Initialize config
 	config.InitConfig("../config/config.json")
 
@@ -16,9 +16,9 @@ func TestGenerateTitleImage(t *testing.T) {
 	imagePath := "../template/long.png"
 	outpath := "../template/titleImage.png"
 
-	err := service.GenerateTitleImage(title, imagePath, outpath)
+	err := service.SetTitleOnImage(title, imagePath, outpath)
 	if err != nil {
-		t.Fatalf("GenerateTitleImage failed: %v", err)
+		t.Fatalf("SetTitleOnImage failed: %v", err)
 	}
 
 	// Verify
