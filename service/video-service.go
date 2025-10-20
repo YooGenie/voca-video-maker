@@ -27,39 +27,8 @@ func NewVideoService(imageService *ImageService, config VideoConfig) *VideoServi
 	}
 }
 
-// CreateSilentVideo 이미지만으로 무음 영상을 생성합니다
-func (s *VideoService) CreateSilentVideo(
-	imagePath string,
-	outputPath string,
-	duration float64,
-) error {
-	cmd := exec.Command("ffmpeg",
-		"-loop", "1",
-		"-i", imagePath,
-		"-c:v", "libx264",
-		"-preset", "fast",
-		"-profile:v", "baseline",
-		"-level", "3.0",
-		"-crf", "25",
-		"-vf", fmt.Sprintf("scale=%d:%d,fps=30", s.config.Width, s.config.Height),
-		"-f", "lavfi",
-		"-i", fmt.Sprintf("anullsrc=channel_layout=stereo:sample_rate=44100"),
-		"-c:a", "aac",
-		"-b:a", "128k",
-		"-ar", "44100",
-		"-t", fmt.Sprintf("%.2f", duration),
-		"-y",
-		outputPath,
-	)
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return cmd.Run()
-}
-
-// CreateVideoWithAudio 이미지와 음성을 합쳐서 영상을 생성합니다
-func (s *VideoService) CreateVideoWithAudio(
+// CreateVideoWithAudioAndImage 이미지와 음성을 합쳐서 영상을 생성합니다
+func (s *VideoService) CreateVideoWithAudioAndImage(
 	imagePath string,
 	audioPath string,
 	outputPath string,
@@ -123,124 +92,6 @@ func (s *VideoService) CreateVideoToAudioLength(
 	return cmd.Run()
 }
 
-// CreateVideoWithAudioAndDuration 이미지와 음성을 합쳐 지정된 시간만큼의 영상을 생성합니다
-func (s *VideoService) CreateVideoWithAudioAndDuration(
-	imagePath string,
-	audioPath string,
-	outputPath string,
-	duration float64,
-) error {
-	cmd := exec.Command("ffmpeg",
-		"-loop", "1",
-		"-i", imagePath,
-		"-i", audioPath,
-		"-c:v", "libx264",
-		"-preset", "fast",
-		"-profile:v", "baseline",
-		"-level", "3.0",
-		"-crf", "25",
-		"-vf", fmt.Sprintf("scale=%d:%d,format=yuv420p,fps=30", s.config.Width, s.config.Height),
-		"-c:a", "aac",
-		"-b:a", "128k",
-		"-ar", "44100",
-		"-t", fmt.Sprintf("%.2f", duration),
-		"-y",
-		outputPath,
-	)
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return cmd.Run()
-}
-
-// CreateVideoWithKoreanAndEnglish 한국어 한 번 + 0.5초 쉬고 + 영어 2번 + 0.5초 쉬는 영상을 생성합니다
-func (s *VideoService) CreateVideoWithKoreanAndEnglish(
-	imagePath string,
-	koreanAudioPath string,
-	englishAudioPath string,
-	outputPath string,
-) error {
-	// 임시 오디오 파일들 생성
-	tempKoreanPath := koreanAudioPath[:len(koreanAudioPath)-4] + "_temp.mp3"
-	tempEnglishPath := englishAudioPath[:len(englishAudioPath)-4] + "_temp.mp3"
-
-	// 한국어 오디오에 0.5초 무음 추가
-	koreanCmd := exec.Command("ffmpeg",
-		"-i", koreanAudioPath,
-		"-af", "apad=pad_dur=0.5",
-		"-y",
-		tempKoreanPath,
-	)
-
-	koreanCmd.Stdout = os.Stdout
-	koreanCmd.Stderr = os.Stderr
-
-	if err := koreanCmd.Run(); err != nil {
-		return fmt.Errorf("한국어 오디오 처리 실패: %v", err)
-	}
-
-	// 영어 오디오를 2번 반복
-	englishCmd := exec.Command("ffmpeg",
-		"-i", englishAudioPath,
-		"-filter_complex", "[0:a]aloop=loop=-1:size=2e+09[a]",
-		"-map", "[a]",
-		"-y",
-		tempEnglishPath,
-	)
-
-	englishCmd.Stdout = os.Stdout
-	englishCmd.Stderr = os.Stderr
-
-	if err := englishCmd.Run(); err != nil {
-		return fmt.Errorf("영어 오디오 처리 실패: %v", err)
-	}
-
-	// 두 오디오를 연결
-	concatPath := outputPath[:len(outputPath)-4] + "_concat.mp3"
-	concatCmd := exec.Command("ffmpeg",
-		"-i", tempKoreanPath,
-		"-i", tempEnglishPath,
-		"-filter_complex", "[0:a][1:a]concat=n=2:v=0:a=1[a]",
-		"-map", "[a]",
-		"-y",
-		concatPath,
-	)
-
-	concatCmd.Stdout = os.Stdout
-	concatCmd.Stderr = os.Stderr
-
-	if err := concatCmd.Run(); err != nil {
-		return fmt.Errorf("오디오 연결 실패: %v", err)
-	}
-
-	// 비디오 생성
-	cmd := exec.Command("ffmpeg",
-		"-loop", "1",
-		"-i", imagePath,
-		"-i", concatPath,
-		"-c:v", "libx264",
-		"-c:a", "aac",
-		"-shortest",
-		"-y",
-		outputPath,
-	)
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("비디오 생성 실패: %v", err)
-	}
-
-	// 임시 파일들 삭제
-	os.Remove(tempKoreanPath)
-	os.Remove(tempEnglishPath)
-	os.Remove(concatPath)
-
-	return nil
-}
-
 // CreateVideoWithKorean 한국어 영상을 생성합니다 (0.5초 무음 + 한국어 음성)
 func (s *VideoService) CreateVideoWithKorean(
 	imagePath string,
@@ -264,7 +115,7 @@ func (s *VideoService) CreateVideoWithKorean(
 	if err := koreanCmd.Run(); err != nil {
 		return fmt.Errorf("한국어 오디오 처리 실패: %v", err)
 	}
-	fmt.Println("----")
+
 	// 비디오 생성 (모바일 호환성 최적화)
 	cmd := exec.Command("ffmpeg",
 		"-loop", "1",
@@ -375,79 +226,6 @@ func (s *VideoService) CreateVideoWithEnglish(
 	// 임시 파일들 삭제
 	os.Remove(tempEnglishPath)
 	os.Remove(finalAudioPath)
-
-	return nil
-}
-
-// GenerateVideosFromNumberedFiles 1부터 시작하는 번호가 매겨진 파일들로부터 영상을 생성합니다
-func (s *VideoService) GenerateVideosFromNumberedFiles(
-	imageDir string,
-	audioDir string,
-	outputDir string,
-	imageFormat string,
-	startNumber int,
-	endNumber int,
-) error {
-	// 출력 디렉토리 생성
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return fmt.Errorf("출력 디렉토리 생성 실패: %v", err)
-	}
-
-	for i := startNumber; i <= endNumber; i++ {
-		imagePath := filepath.Join(imageDir, fmt.Sprintf("%d.%s", i, imageFormat))
-		outputPath := filepath.Join(outputDir, fmt.Sprintf("%d.mp4", i))
-
-		if i%2 == 1 { // 홀수 번호 - 한국어
-			koreanAudioPath := filepath.Join(audioDir, fmt.Sprintf("%d_ko.mp3", i))
-			if err := s.CreateVideoWithKorean(imagePath, koreanAudioPath, outputPath); err != nil {
-				return fmt.Errorf("한국어 영상 생성 실패 (%d): %v", i, err)
-			}
-		} else { // 짝수 번호 - 영어
-			englishAudioPath := filepath.Join(audioDir, fmt.Sprintf("%d_en.mp3", i))
-			if err := s.CreateVideoWithEnglish(imagePath, englishAudioPath, outputPath); err != nil {
-				return fmt.Errorf("영어 영상 생성 실패 (%d): %v", i, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-// CreateVideoFromImages 여러 이미지로부터 개별 영상을 생성합니다
-func (s *VideoService) CreateVideoFromImages(
-	imagePrefix string,
-	audioPrefix string,
-	outputPrefix string,
-	duration float64,
-	count int,
-) error {
-	// videos 디렉토리 생성
-	videosDir := "videos"
-	if err := os.MkdirAll(videosDir, 0755); err != nil {
-		return fmt.Errorf("videos 디렉토리 생성 실패: %v", err)
-	}
-
-	// 각 이미지에 대해 개별 영상 생성
-	for i := 0; i < count; i++ {
-		imagePath := fmt.Sprintf("%s_%d.png", imagePrefix, i)
-		audioPath := fmt.Sprintf("%s_%d.mp3", audioPrefix, i)
-		outputPath := filepath.Join(videosDir, fmt.Sprintf("%s_%d.mp4", outputPrefix, i))
-
-		// 이미지 파일이 존재하는지 확인
-		if _, err := os.Stat(imagePath); os.IsNotExist(err) {
-			return fmt.Errorf("이미지 파일이 존재하지 않습니다: %s", imagePath)
-		}
-
-		// 오디오 파일이 존재하는지 확인
-		if _, err := os.Stat(audioPath); os.IsNotExist(err) {
-			return fmt.Errorf("오디오 파일이 존재하지 않습니다: %s", audioPath)
-		}
-
-		fmt.Printf("영상 생성 중: %d/%d (이미지: %s, 오디오: %s)\n", i+1, count, imagePath, audioPath)
-		if err := s.CreateVideoWithAudio(imagePath, audioPath, outputPath, duration); err != nil {
-			return fmt.Errorf("영상 생성 실패 (%d): %v", i, err)
-		}
-	}
 
 	return nil
 }
