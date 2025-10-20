@@ -1,6 +1,7 @@
-package service
+package factory
 
 import (
+	videoType "auto-video-service/service/video-type"
 	"context"
 	"log"
 	"time"
@@ -18,13 +19,16 @@ func (f *VideoServiceFactory) CreateVideo(ctx context.Context, dateFlag *string,
 
 	switch *serviceType {
 	case "W":
-		englishWordService := NewEnglishWordService()
+		englishWordService :=videoType.NewEnglishWordService()
 		englishWordService.CreateWordsReels(ctx, targetDate, serviceType)
 	case "I":
-		englishIdiomService := NewEnglishIdiomService()
+		englishIdiomService := videoType.NewEnglishIdiomService()
 		englishIdiomService.CreateIdiomsReels(ctx, targetDate, serviceType)
+	case "L":
+		longformWordService := videoType.NewLongformWordService()
+		longformWordService.CreateLongformWords(ctx, targetDate, serviceType)
 	default:
-		log.Fatalf("잘못된 서비스 타입입니다. W, I 중 하나를 선택하세요.")
+		log.Fatalf("잘못된 서비스 타입입니다. W, I, L 중 하나를 선택하세요.")
 	}
 
 	if err != nil {
