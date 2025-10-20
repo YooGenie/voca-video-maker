@@ -70,7 +70,7 @@ import os
 def generate_native_english_audio(text, output_path):
     try:
         # 고품질 영어 음성 설정
-        tts = gTTS(text=text, lang='en', slow=False, lang_check=True)
+        tts = gTTS(text=text, lang='en', tld='us', slow=False, lang_check=True)
         tts.save(output_path)
         print(f"✅ 원어민 영어 음성 생성 완료: {output_path}")
         return True
