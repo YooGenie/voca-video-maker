@@ -88,14 +88,14 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 			imagePath := fmt.Sprintf("images/output_%02d.png", i+1)
 			koreanAudioPath := fmt.Sprintf("audio/kor_%d.mp3", i/2)
 			videoFileName = fmt.Sprintf("video_%d.mp4", i)
-			if err := videoService.CreateVideoWithKorean(imagePath, koreanAudioPath, filepath.Join(videosDir, videoFileName)); err != nil {
+			if err := videoService.CreateVideoWithKorean(imagePath, koreanAudioPath, filepath.Join(videosDir, videoFileName), 1); err != nil {
 				log.Fatalf("한국어 영상 생성 실패 (%d): %v", i, err)
 			}
 		} else { // 홀수 - 영어
 			imagePath := fmt.Sprintf("images/output_%02d.png", i+1)
 			englishAudioPath := fmt.Sprintf("audio/eng_%d.mp3", i/2)
 			videoFileName = fmt.Sprintf("video_%d.mp4", i)
-			if err := videoService.CreateVideoWithEnglish(imagePath, englishAudioPath, filepath.Join(videosDir, videoFileName)); err != nil {
+			if err := videoService.CreateVideoWithEnglish(imagePath, englishAudioPath, filepath.Join(videosDir, videoFileName), 2); err != nil {
 				log.Fatalf("영어 영상 생성 실패 (%d): %v", i, err)
 			}
 		}

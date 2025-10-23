@@ -92,17 +92,18 @@ func (s *VideoService) CreateVideoToAudioLength(
 	return cmd.Run()
 }
 
-// CreateVideoWithKorean 한국어 영상을 생성합니다 (0.5초 무음 + 한국어 음성)
+// CreateVideoWithKorean 한국어 영상을 생성합니다 (무음 + 한국어 음성)
 func (s *VideoService) CreateVideoWithKorean(
 	imagePath string,
 	koreanAudioPath string,
 	outputPath string,
+	silentTime float64,
 ) error {
-	// 한국어 오디오에 0.5초 무음 추가 (싱크 맞춤)
+	// 한국어 오디오에 무음 추가 (싱크 맞춤)
 	tempKoreanPath := koreanAudioPath[:len(koreanAudioPath)-4] + "_temp.mp3"
 	koreanCmd := exec.Command("ffmpeg",
 		"-i", koreanAudioPath,
-		"-af", "apad=pad_dur=0.5",
+		"-af", fmt.Sprintf("apad=pad_dur=%.1f", silentTime),
 		"-avoid_negative_ts", "make_zero",
 		"-fflags", "+genpts",
 		"-y",
@@ -156,13 +157,14 @@ func (s *VideoService) CreateVideoWithEnglish(
 	imagePath string,
 	englishAudioPath string,
 	outputPath string,
+	silentTime float64, // 무음 시간
 ) error {
-	// 영어 오디오를 2번 반복하고 사이에 0.4초 무음 추가
+	// 영어 오디오를 2번 반복하고 사이에 무음 추가
 	tempEnglishPath := englishAudioPath[:len(englishAudioPath)-4] + "_temp.mp3"
 	englishCmd := exec.Command("ffmpeg",
 		"-i", englishAudioPath,
 		"-i", englishAudioPath,
-		"-filter_complex", "[0:a]apad=pad_dur=0.5[a1];[a1][1:a]concat=n=2:v=0:a=1[a]",
+		"-filter_complex", fmt.Sprintf("[0:a]apad=pad_dur=%.1f[a1];[a1][1:a]concat=n=2:v=0:a=1[a]", silentTime),
 		"-map", "[a]",
 		"-avoid_negative_ts", "make_zero",
 		"-fflags", "+genpts",
@@ -177,11 +179,11 @@ func (s *VideoService) CreateVideoWithEnglish(
 		return fmt.Errorf("영어 오디오 처리 실패: %v", err)
 	}
 
-	// 0.5초 무음을 앞에 추가
+	// 무음을 앞에 추가
 	finalAudioPath := outputPath[:len(outputPath)-4] + "_final.mp3"
 	finalCmd := exec.Command("ffmpeg",
 		"-i", tempEnglishPath,
-		"-af", "apad=pad_dur=0.5",
+		"-af", fmt.Sprintf("apad=pad_dur=%.1f", silentTime),
 		"-y",
 		finalAudioPath,
 	)
