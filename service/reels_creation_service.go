@@ -110,7 +110,7 @@ func (s *ReelsCreationService) CreateCompleteReels(ctx context.Context, request 
 			koreanAudioPath := fmt.Sprintf("audio/kor_%d.mp3", i/2)
 			outputPath = fmt.Sprintf("videos/video_%d.mp4", i)
 			
-			if err := videoService.CreateVideoWithKorean(imagePath, koreanAudioPath, outputPath); err != nil {
+			if err := videoService.CreateVideoWithKorean(imagePath, koreanAudioPath, outputPath, 0.5); err != nil {
 				log.Printf("한국어 영상 생성 실패 (%d): %v", i, err)
 				response.Error = err
 				return response
@@ -120,7 +120,7 @@ func (s *ReelsCreationService) CreateCompleteReels(ctx context.Context, request 
 			englishAudioPath := fmt.Sprintf("audio/eng_%d.mp3", i/2)
 			outputPath = fmt.Sprintf("videos/video_%d.mp4", i)
 			
-			if err := videoService.CreateVideoWithEnglish(imagePath, englishAudioPath, outputPath); err != nil {
+			if err := videoService.CreateVideoWithEnglish(imagePath, englishAudioPath, outputPath, 0.5); err != nil {
 				log.Printf("영어 영상 생성 실패 (%d): %v", i, err)
 				response.Error = err
 				return response
