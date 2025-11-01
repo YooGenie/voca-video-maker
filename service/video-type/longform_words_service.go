@@ -42,7 +42,7 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 	}
 
 	// 1. 타이틀 시퀀스 생성 (이미지, 음성, 비디오)
-	titleVideoPath, err := s.createTitleSequence(title.Title, imageService, audioService, videoService, audioDir, videosDir)
+	titleVideoPath, err := s.createTitleSequence(title.Title, title.SubTitle, imageService, audioService, videoService, audioDir, videosDir)
 	if err != nil {
 		log.Fatalf("타이틀 시퀀스 생성 실패: %v", err)
 	}
@@ -118,7 +118,7 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 
 // createTitleSequence는 타이틀 이미지, 오디오, 비디오를 모두 생성합니다.
 func (s *LongformWordService) createTitleSequence(
-	title string,
+	title, subTitle string,
 	imageService *service.ImageService,
 	audioService *service.AudioService,
 	videoService *service.VideoService,
@@ -128,7 +128,7 @@ func (s *LongformWordService) createTitleSequence(
 
 	// 1. 타이틀 이미지 생성
 	titleImagePath := "template/titleImage.png"
-	if err := imageService.SetTitleOnImage(title, "template/long.png", titleImagePath); err != nil {
+	if err := imageService.SetTitleOnImage(title, subTitle, "template/title.png", titleImagePath); err != nil {
 		return "", fmt.Errorf("타이틀 이미지 생성 실패: %w", err)
 	}
 	log.Println("✅ 타이틀 이미지 생성 완료")

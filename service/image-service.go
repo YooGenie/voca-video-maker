@@ -274,8 +274,8 @@ func (s *ImageService) SetWordCountOnImage(
 	return nil
 }
 
-// SetTitleOnImage creates an image with a centered title.
-func (s *ImageService) SetTitleOnImage(title, imagePath, outputPath string) error {
+// SetTitleOnImage creates an image with a centered title and subtitle.
+func (s *ImageService) SetTitleOnImage(title, subTitle, imagePath, outputPath string) error {
 	// 1. Load image
 	existingImageFile, err := os.Open(imagePath)
 	if err != nil {
@@ -302,7 +302,7 @@ func (s *ImageService) SetTitleOnImage(title, imagePath, outputPath string) erro
 
 	// Set font options
 	face, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
-		Size:    120, // Font size
+		Size:    80, // Font size
 		DPI:     72,  // DPI (Dots Per Inch)
 		Hinting: font.HintingNone,
 	})
@@ -315,9 +315,9 @@ func (s *ImageService) SetTitleOnImage(title, imagePath, outputPath string) erro
 	rgba := image.NewRGBA(img.Bounds())
 	draw.Draw(rgba, rgba.Bounds(), img, image.Point{}, draw.Src)
 
-	textColor := color.RGBA{R: 255, G: 255, B: 255, A: 255} // White
+	textColor := color.RGBA{R: 0, G: 0, B: 0, A: 255} // Black
 
-	// Calculate text position
+	// Calculate title text position
 	textBounds, _ := font.BoundString(face, title)
 	textWidth := (textBounds.Max.X - textBounds.Min.X).Ceil()
 	textHeight := (textBounds.Max.Y - textBounds.Min.Y).Ceil()
@@ -325,15 +325,16 @@ func (s *ImageService) SetTitleOnImage(title, imagePath, outputPath string) erro
 	imgWidth := rgba.Bounds().Dx()
 	imgHeight := rgba.Bounds().Dy()
 
-	pointX := (imgWidth - textWidth) / 2
-	pointY := (imgHeight + textHeight) / 2
+	// Move to right and up to avoid left character
+	pointX := (imgWidth - textWidth) / 2 + 250 // Right offset
+	pointY := (imgHeight + textHeight) / 2 - 100 // Up offset
 
 	point := fixed.Point26_6{
 		X: fixed.I(pointX),
 		Y: fixed.I(pointY),
 	}
 
-	// Draw text on image
+	// Draw title on image
 	d := &font.Drawer{
 		Dst:  rgba,
 		Src:  image.NewUniform(textColor),
@@ -341,6 +342,28 @@ func (s *ImageService) SetTitleOnImage(title, imagePath, outputPath string) erro
 		Dot:  point,
 	}
 	d.DrawString(title)
+
+	// Draw subtitle below title if provided
+	if subTitle != "" {
+		subTitleBounds, _ := font.BoundString(face, subTitle)
+		subTitleWidth := (subTitleBounds.Max.X - subTitleBounds.Min.X).Ceil()
+
+		subTitlePointX := (imgWidth - subTitleWidth) / 2 + 250 // Right offset
+		subTitlePointY := pointY + textHeight + 30 // Below title with 30px spacing
+
+		subTitlePoint := fixed.Point26_6{
+			X: fixed.I(subTitlePointX),
+			Y: fixed.I(subTitlePointY),
+		}
+
+		subTitleDrawer := &font.Drawer{
+			Dst:  rgba,
+			Src:  image.NewUniform(textColor),
+			Face: face,
+			Dot:  subTitlePoint,
+		}
+		subTitleDrawer.DrawString(subTitle)
+	}
 
 	// Save image
 	outputFile, err := os.Create(outputPath)
