@@ -1,6 +1,7 @@
 package service
 
 import (
+	"auto-video-service/config"
 	"fmt"
 	"os"
 	"os/exec"
@@ -83,6 +84,69 @@ func (s *VideoService) CreateVideoToAudioLength(
 		"-ar", "44100",
 		"-shortest", // 오디오 길이에 맞춰 비디오 종료
 		"-y",        // 기존 파일 덮어쓰기
+		outputPath,
+	)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+// CreateStartCommentVideo start.png 이미지와 start_comment.mp3 음성을 합쳐 비디오를 생성합니다
+func (s *VideoService) CreateStartCommentVideo(
+	outputPath string,
+) error {
+	imagePath := config.Config.StartImagePath
+	audioPath := config.Config.StartAudioPath
+
+	cmd := exec.Command("ffmpeg",
+		"-loop", "1",
+		"-i", imagePath,
+		"-i", audioPath,
+		"-c:v", "libx264",
+		"-preset", "fast",
+		"-profile:v", "baseline",
+		"-level", "3.0",
+		"-crf", "25",
+		"-vf", fmt.Sprintf("scale=%d:%d,format=yuv420p,fps=30", s.config.Width, s.config.Height),
+		"-c:a", "aac",
+		"-b:a", "128k",
+		"-ar", "44100",
+		"-shortest", // 오디오 길이에 맞춰 비디오 종료
+		"-y",        // 기존 파일 덮어쓰기
+		outputPath,
+	)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+// CreateGoodVideo good.png 이미지로 무음 2초 비디오를 생성합니다
+func (s *VideoService) CreateGoodVideo(
+	outputPath string,
+) error {
+	imagePath := config.Config.GoodImagePath
+	duration := 2.0 // 2초
+
+	cmd := exec.Command("ffmpeg",
+		"-loop", "1",
+		"-i", imagePath,
+		"-f", "lavfi",
+		"-i", "anullsrc=r=44100:cl=stereo", // 무음 오디오 생성
+		"-c:v", "libx264",
+		"-preset", "fast",
+		"-profile:v", "baseline",
+		"-level", "3.0",
+		"-crf", "25",
+		"-vf", fmt.Sprintf("scale=%d:%d,format=yuv420p,fps=30", s.config.Width, s.config.Height),
+		"-c:a", "aac",
+		"-b:a", "128k",
+		"-ar", "44100",
+		"-t", fmt.Sprintf("%.2f", duration), // 2초 길이로 설정
+		"-y", // 기존 파일 덮어쓰기
 		outputPath,
 	)
 
@@ -250,11 +314,16 @@ func (s *VideoService) ConcatenateVideos(
 
 	// 각 영상 파일을 목록에 추가
 	for _, videoPath := range videoPaths {
-		line := fmt.Sprintf("file '%s'\n", videoPath)
+		// 절대 경로로 변환하여 정확한 파일 경로 사용
+		absPath, err := filepath.Abs(videoPath)
+		if err != nil {
+			return fmt.Errorf("경로 변환 실패 (%s): %v", videoPath, err)
+		}
+		line := fmt.Sprintf("file '%s'\n", absPath)
 		if _, err := file.WriteString(line); err != nil {
 			return fmt.Errorf("파일 목록 작성 실패: %v", err)
 		}
-		fmt.Printf("영상 파일 추가: %s\n", videoPath)
+		fmt.Printf("영상 파일 추가: %s\n", absPath)
 	}
 	file.Close()
 

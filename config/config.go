@@ -24,7 +24,10 @@ var Config = struct {
 	Service struct {
 		Name string
 	}
-	FontPath string
+	FontPath      string
+	StartImagePath string
+	StartAudioPath string
+	GoodImagePath string
 }{}
 
 func InitConfig(cfg string) {
