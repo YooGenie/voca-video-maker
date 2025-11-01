@@ -48,6 +48,14 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 	}
 	videoPaths := []string{titleVideoPath}
 
+	// 1-1. 스타트 코멘트 비디오 연결 (이미 생성된 template/start_comment.mp4 사용)
+	startCommentVideoPath := "template/start_comment.mp4"
+	if _, err := os.Stat(startCommentVideoPath); os.IsNotExist(err) {
+		log.Fatalf("스타트 코멘트 비디오를 찾을 수 없습니다: %s", startCommentVideoPath)
+	}
+	videoPaths = append(videoPaths, startCommentVideoPath)
+	log.Println("✅ 스타트 코멘트 비디오 연결 완료!")
+
 	// 2. 본문 이미지 생성
 	words := make([]string, len(longformWords))
 	meanings := make([]string, len(longformWords))
@@ -99,7 +107,7 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 				log.Fatalf("영어 영상 생성 실패 (%d): %v", i, err)
 			}
 		}
-		videoPaths = append(videoPaths, videoFileName)
+		videoPaths = append(videoPaths, filepath.Join(videosDir, videoFileName))
 		log.Printf("📹 영상 생성 완료: %d/%d", i+1, len(longformWords)*2)
 	}
 	log.Println("✅ 개별 영상 생성 완료!")
@@ -133,18 +141,12 @@ func (s *LongformWordService) createTitleSequence(
 	}
 	log.Println("✅ 타이틀 이미지 생성 완료")
 
-	// 2. 타이틀 오디오 생성
-	slowRate := 123
+	// 2. 타이틀 오디오 생성 (이미지에 표시된 title과 subTitle을 음성으로 변환)
+	slowRate := 150
 	audioPart1Path := filepath.Join(audioDir, "title_part1.mp3")
 	defer os.Remove(audioPart1Path)
-	if err := audioService.CreateKoreanAudioWithRate("누워서 영어공부", audioPart1Path, slowRate); err != nil {
+	if err := audioService.CreateKoreanAudioWithRate(title, audioPart1Path, slowRate); err != nil {
 		return "", fmt.Errorf("타이틀 음성(part1) 생성 실패: %w", err)
-	}
-
-	audioPart2Path := filepath.Join(audioDir, "title_part2.mp3")
-	defer os.Remove(audioPart2Path)
-	if err := audioService.CreateKoreanAudioWithRate("시작합니다", audioPart2Path, slowRate); err != nil {
-		return "", fmt.Errorf("타이틀 음성(part2) 생성 실패: %w", err)
 	}
 
 	silenceAudioPath := filepath.Join(audioDir, "silence.mp3")
@@ -156,30 +158,56 @@ func (s *LongformWordService) createTitleSequence(
 
 	concatAudioPath := filepath.Join(audioDir, "longform_title.mp3")
 	defer os.Remove(concatAudioPath)
-	concatCmd := exec.Command("ffmpeg",
-		"-i", audioPart1Path,
-		"-i", silenceAudioPath,
-		"-i", audioPart2Path,
-		"-i", silenceAudioPath,
-		"-filter_complex", "[0:a]aformat=sample_fmts=s16:sample_rates=22050:channel_layouts=mono[a0];[1:a]aformat=sample_fmts=s16:sample_rates=22050:channel_layouts=mono[a1];[2:a]aformat=sample_fmts=s16:sample_rates=22050:channel_layouts=mono[a2];[a0][a1][a2]concat=n=4:v=0:a=1[out]",
-		"-map", "[out]",
-		"-acodec", "libmp3lame",
-		"-ab", "128k",
-		"-y", concatAudioPath,
-	)
-	if err := concatCmd.Run(); err != nil {
-		return "", fmt.Errorf("타이틀 음성 파일 합치기 실패: %w", err)
+
+	// subTitle이 있는 경우와 없는 경우를 분기 처리
+	if subTitle != "" {
+		audioPart2Path := filepath.Join(audioDir, "title_part2.mp3")
+		defer os.Remove(audioPart2Path)
+		if err := audioService.CreateKoreanAudioWithRate(subTitle, audioPart2Path, slowRate); err != nil {
+			return "", fmt.Errorf("타이틀 음성(part2) 생성 실패: %w", err)
+		}
+
+		// title + 무음 + subTitle + 무음 합치기
+		concatCmd := exec.Command("ffmpeg",
+			"-i", audioPart1Path,
+			"-i", silenceAudioPath,
+			"-i", audioPart2Path,
+			"-i", silenceAudioPath,
+			"-filter_complex", "[0:a]aformat=sample_fmts=s16:sample_rates=22050:channel_layouts=mono[a0];[1:a]aformat=sample_fmts=s16:sample_rates=22050:channel_layouts=mono[a1];[2:a]aformat=sample_fmts=s16:sample_rates=22050:channel_layouts=mono[a2];[3:a]aformat=sample_fmts=s16:sample_rates=22050:channel_layouts=mono[a3];[a0][a1][a2][a3]concat=n=4:v=0:a=1[out]",
+			"-map", "[out]",
+			"-acodec", "libmp3lame",
+			"-ab", "128k",
+			"-y", concatAudioPath,
+		)
+		if err := concatCmd.Run(); err != nil {
+			return "", fmt.Errorf("타이틀 음성 파일 합치기 실패: %w", err)
+		}
+	} else {
+		// subTitle이 없는 경우: title + 무음만 합치기
+		concatCmd := exec.Command("ffmpeg",
+			"-i", audioPart1Path,
+			"-i", silenceAudioPath,
+			"-filter_complex", "[0:a]aformat=sample_fmts=s16:sample_rates=22050:channel_layouts=mono[a0];[1:a]aformat=sample_fmts=s16:sample_rates=22050:channel_layouts=mono[a1];[a0][a1]concat=n=2:v=0:a=1[out]",
+			"-map", "[out]",
+			"-acodec", "libmp3lame",
+			"-ab", "128k",
+			"-y", concatAudioPath,
+		)
+		if err := concatCmd.Run(); err != nil {
+			return "", fmt.Errorf("타이틀 음성 파일 합치기 실패: %w", err)
+		}
 	}
 	log.Println("✅ 타이틀 오디오 생성 완료")
 
 	// 3. 최종 타이틀 영상 생성
 	titleVideoPath := "title_video.mp4"
-	if err := videoService.CreateVideoToAudioLength(titleImagePath, concatAudioPath, filepath.Join(videosDir, titleVideoPath)); err != nil {
+	fullTitleVideoPath := filepath.Join(videosDir, titleVideoPath)
+	if err := videoService.CreateVideoToAudioLength(titleImagePath, concatAudioPath, fullTitleVideoPath); err != nil {
 		return "", fmt.Errorf("타이틀 영상 생성 실패: %w", err)
 	}
 	log.Println("✅ 타이틀 비디오 생성 완료")
 
-	return titleVideoPath, nil
+	return fullTitleVideoPath, nil
 }
 
 func (s *LongformWordService) getTitleByDate(ctx context.Context, targetDate time.Time) (*entity.Title, []entity.LongformWord, error) {
