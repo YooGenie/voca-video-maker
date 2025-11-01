@@ -139,7 +139,7 @@ func (s *ReelsCreationService) CreateCompleteReels(ctx context.Context, request 
 
 	videoPaths := make([]string, 0, contentCount*2)
 	for i := 0; i < contentCount*2; i++ {
-		videoPaths = append(videoPaths, fmt.Sprintf("video_%d.mp4", i))
+		videoPaths = append(videoPaths, fmt.Sprintf("videos/video_%d.mp4", i))
 	}
 
 	err = videoService.ConcatenateVideos(
