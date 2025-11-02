@@ -133,8 +133,16 @@ func (s *ReelsCreationService) CreateCompleteReels(ctx context.Context, request 
 	log.Println("개별 영상 생성 완료!")
 
 	// 5. 모든 영상을 하나로 합치기
-	// 지정된 날짜를 YYMMDD 형식으로 생성
-	finalFileName := fmt.Sprintf("%02d%02d%02d.mp4", request.TargetDate.Year()%100, request.TargetDate.Month(), request.TargetDate.Day())
+	// 지정된 날짜를 YYMMDD 형식으로 생성하고 서비스 타입에 따라 구별
+	var finalFileName string
+	switch request.ServiceType {
+	case "W":
+		finalFileName = fmt.Sprintf("%02d%02d%02d_word.mp4", request.TargetDate.Year()%100, request.TargetDate.Month(), request.TargetDate.Day())
+	case "I":
+		finalFileName = fmt.Sprintf("%02d%02d%02d_idiom.mp4", request.TargetDate.Year()%100, request.TargetDate.Month(), request.TargetDate.Day())
+	default:
+		finalFileName = fmt.Sprintf("%02d%02d%02d.mp4", request.TargetDate.Year()%100, request.TargetDate.Month(), request.TargetDate.Day())
+	}
 	response.FinalFileName = finalFileName
 
 	videoPaths := make([]string, 0, contentCount*2)
