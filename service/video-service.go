@@ -312,7 +312,7 @@ func (s *VideoService) ConcatenateVideos(
 	}
 	defer file.Close()
 
-	// 각 영상 파일을 목록에 추가
+	// start_comment.mp4 자동 추가 제거: 전달받은 videoPaths만 사용
 	for _, videoPath := range videoPaths {
 		// 절대 경로로 변환하여 정확한 파일 경로 사용
 		absPath, err := filepath.Abs(videoPath)
