@@ -1,0 +1,26 @@
+{
+    // VS Code의 일반 설정: 저장 시 실행할 코드 액션 목록
+    "editor.codeActionsOnSave": {
+        // Go 확장 기능에게 포맷팅 및 가져오기 정리(goimports)를 요청
+        "source.organizeImports": "explicit", 
+        
+        // Go 관련 모든 자동 수정 작업을 요청 (lint fix 포함)
+        "source.fixAll.go": "explicit"
+    },
+    
+    // Go 확장 프로그램 설정:
+    
+    // 저장 시 Lint를 실행할 범위 설정 ("file", "package", "workspace" 중 선택)
+    "go.lintOnSave": "package", 
+    
+    // 사용할 Lint 도구 지정 (기본값은 go vet이지만, 더 강력한 린터를 권장)
+    "go.lintTool": "golangci-lint", 
+
+    // 저장 시 사용할 포맷팅 도구 지정 (goimports가 gofmt보다 더 기능이 많아 일반적으로 선호됨)
+    "go.formatTool": "goimports",
+    
+    // golangci-lint를 사용할 경우, 이 설정을 통해 린트가 실행되도록 합니다.
+    "go.lintFlags": [
+        "--fast" 
+    ]
+}
