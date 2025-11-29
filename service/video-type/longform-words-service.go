@@ -121,7 +121,46 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 
 	// 6. 중간 파일 정리
 	log.Println("🗑️ 중간 파일들 정리 중...")
-	// ... (cleanup logic is unchanged)
+	if err := s.cleanupFiles(videoPaths, len(longformWords)); err != nil {
+		log.Printf("중간 파일 정리에 실패했습니다: %v", err)
+	}
+	log.Println("✅ 중간 파일 정리 완료!")
+}
+
+func (s *LongformWordService) cleanupFiles(videoPaths []string, wordCount int) error {
+	// 1. 중간 비디오 파일 삭제 (타이틀 영상 포함)
+	for _, path := range videoPaths {
+		if err := os.Remove(path); err != nil {
+			log.Printf("중간 비디오 파일 삭제 실패 (%s): %v", path, err)
+		}
+	}
+
+	// 2. 생성된 본문 이미지 삭제
+	for i := 0; i < wordCount*2; i++ {
+		imagePath := fmt.Sprintf("images/output_%02d.png", i+1)
+		if err := os.Remove(imagePath); err != nil {
+			log.Printf("이미지 파일 삭제 실패 (%s): %v", imagePath, err)
+		}
+	}
+
+	// 3. 생성된 타이틀 이미지 삭제
+	if err := os.Remove("template/titleImage.png"); err != nil {
+		log.Printf("타이틀 이미지 파일 삭제 실패: %v", err)
+	}
+
+	// 4. 생성된 본문 오디오 파일 삭제
+	for i := 0; i < wordCount; i++ {
+		engAudioPath := fmt.Sprintf("audio/eng_%d.mp3", i)
+		if err := os.Remove(engAudioPath); err != nil {
+			log.Printf("영어 오디오 파일 삭제 실패 (%s): %v", engAudioPath, err)
+		}
+		korAudioPath := fmt.Sprintf("audio/kor_%d.mp3", i)
+		if err := os.Remove(korAudioPath); err != nil {
+			log.Printf("한국어 오디오 파일 삭제 실패 (%s): %v", korAudioPath, err)
+		}
+	}
+
+	return nil
 }
 
 // createTitleSequence는 타이틀 이미지, 오디오, 비디오를 모두 생성합니다.

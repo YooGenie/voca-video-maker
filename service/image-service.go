@@ -79,7 +79,7 @@ func (s *ImageService) GenerateBasicImages(
 
 	// 4. 이미지들 생성
 	textColor := color.RGBA{R: 255, G: 255, B: 255, A: 255} // 흰색
-	fmt.Println("=======>",count)
+
 	for i := 0; i < count; i++ {
 		// 원본 이미지 복사
 		rgba := image.NewRGBA(img.Bounds())
@@ -103,7 +103,7 @@ func (s *ImageService) GenerateBasicImages(
 		imgHeight := rgba.Bounds().Dy()
 
 		pointX := (imgWidth - textWidth) / 2
-		pointY := (imgHeight + textHeight) / 2
+		pointY := (imgHeight + textHeight) / 2 - 180
 
 		point := fixed.Point26_6{
 			X: fixed.I(pointX),

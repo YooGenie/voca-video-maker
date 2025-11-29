@@ -49,6 +49,13 @@ func (s *EnglishIdiomService) CreateIdiomsReels(ctx context.Context, targetDate 
 	if !response.Success {
 		log.Fatalf("비디오 생성 실패: %v", response.Error)
 	}
+
+	fmt.Println("\n📚 생성된 영어 숙어 목록:")
+	fmt.Println("=" + fmt.Sprintf("%*s", 40, "") + "=")
+	for i := 0; i < len(idiom); i++ {
+		fmt.Printf("%d) %s (%s)\n", i+1, idiom[i], meaning[i])
+	}
+	fmt.Println("=" + fmt.Sprintf("%*s", 40, "") + "=")
 }
 
 // GetIdiomsByDate - 지정된 날짜의 영어숙어를 조회하여 3개의 배열로 반환
