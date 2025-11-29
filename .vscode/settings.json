@@ -22,5 +22,7 @@
     // golangci-lint를 사용할 경우, 이 설정을 통해 린트가 실행되도록 합니다.
     "go.lintFlags": [
         "--fast" 
-    ]
+    ],
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 60000
 }
