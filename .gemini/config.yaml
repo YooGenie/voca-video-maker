@@ -1,0 +1,40 @@
+# Gemini Code Assist 설정 파일
+
+# 이 파일은 Gemini Code Assist의 동작을 정의합니다.
+
+# 리뷰 기능 활성화/비활성화 (기본값: 활성화)
+# 'false'로 설정하면 Pull Request에서 Gemini의 코드 리뷰를 완전히 비활성화합니다.
+disable: false
+
+# 코드 리뷰 댓글의 최소 심각도 임계값
+# Gemini가 Pull Request에 댓글을 게시할 최소 심각도를 설정합니다.
+# 유효한 값: CRITICAL, HIGH, MEDIUM, LOW, INFO
+# 'MEDIUM'은 너무 많은 자잘한 피드백을 피하면서 중요한 문제를 다루는 데 좋습니다.
+comment_severity_threshold: MEDIUM
+
+# 파일당 최대 리뷰 댓글 수
+# Gemini가 각 파일에 대해 게시할 수 있는 최대 리뷰 댓글 수를 제한합니다.
+# -1은 제한이 없음을 의미합니다. (모든 댓글 게시)
+max_review_comments: -1
+
+# Pull Request가 열렸을 때의 자동 동작 설정
+# 새로운 Pull Request가 생성되거나 업데이트될 때 Gemini가 수행할 작업을 정의합니다.
+pull_request_opened:
+  # Gemini Code Assist 사용법 도움말 댓글 게시 여부
+  # 'true'로 설정하면 Pull Request에 Gemini 사용법에 대한 도움말 댓글을 게시합니다.
+  help: false
+
+  # Pull Request 요약 댓글 게시 여부
+  # 'true'로 설정하면 Gemini가 PR의 변경 사항에 대한 간략한 요약을 제공합니다.
+  summary: true
+
+  # 코드 리뷰 댓글 게시 여부
+  # 'true'로 설정하면 Gemini가 코드 변경 사항에 대한 상세 리뷰 댓글을 게시합니다.
+  code_review: true
+
+# 리뷰에서 무시할 파일 및 디렉토리 패턴
+# Gemini가 코드 리뷰를 건너뛸 파일이나 디렉토리 경로를 정의합니다.
+# 여기에는 빌드 결과물, 의존성 폴더, 자동 생성된 파일 등이 포함될 수 있습니다.
+ignore_files:
+
+ignore_patterns: []
