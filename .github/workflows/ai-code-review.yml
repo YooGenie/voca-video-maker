@@ -1,0 +1,111 @@
+name: AI Code Review (Gemini)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Code Changes
+        id: diff
+        run: |
+          git diff ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > changes.diff
+          echo "diff_file=changes.diff" >> $GITHUB_OUTPUT
+
+      # jq 설치 추가
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      # Gemini API 호출 로직 수정
+      - name: Request Code Review from Gemini
+        id: gemini_review
+        run: |
+          # diff 파일 내용을 JSON에 안전하게 포함시키기 위해 이스케이프
+          DIFF_CONTENT=$(jq -Rs . < ${{ steps.diff.outputs.diff_file }})
+
+          # Gemini API에 보낼 프롬프트 구성
+          PROMPT="You are an expert Go developer acting as a code reviewer. Please review the following code changes (in git diff format) and provide feedback. Focus on code quality, best practices, potential bugs, and clarity. If there are no issues, simply respond with 'Looks good to me.'. --- GIT DIFF --- ${DIFF_CONTENT}"
+
+          # API 페이로드 생성
+          JSON_PAYLOAD=$(printf '{"contents":[{"parts":[{"text":%s}]}]}' "$(echo "$PROMPT" | jq -sRr @json)")
+
+          # Gemini API 호출하고 HTTP 상태 코드를 함께 받음
+          API_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Content-Type: application/json" \
+            -d "$JSON_PAYLOAD" \
+            "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}")
+          # HTTP 상태 코드와 응답 본문 분리
+          HTTP_RESPONSE_LAST_LINE=$(echo "$API_RESPONSE" | tail -n1)
+          API_BODY=$(echo "$API_RESPONSE" | sed '$d')
+
+          # 마지막 줄이 숫자인지 확인하여 HTTP 코드로 사용
+          if [[ "$HTTP_RESPONSE_LAST_LINE" =~ ^[0-9]+$ ]]; then
+            HTTP_CODE="$HTTP_RESPONSE_LAST_LINE"
+          else
+            # 숫자가 아니면, API_BODY에 전체 응답을 넣고, 코드는 에러로 처리
+            HTTP_CODE="0" # Curl/network error
+            API_BODY="$API_RESPONSE"
+          fi
+
+          # 디버깅을 위해 API 응답 로깅
+          echo "--- Gemini API Response ---"
+          echo "HTTP Code: $HTTP_CODE"
+          echo "Body: $API_BODY"
+          echo "-------------------------"
+
+          # API 응답에 에러가 있는지 확인 (HTTP 상태 코드 기준)
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "::error::Gemini API call failed with HTTP status $HTTP_CODE."
+            # 에러 메시지가 JSON 형태일 경우 구문 분석 시도
+            if echo "$API_BODY" | jq -e '.error.message' > /dev/null; then
+                ERROR_MESSAGE=$(echo "$API_BODY" | jq -r '.error.message')
+                echo "::error::Error Details: $ERROR_MESSAGE"
+            else
+                echo "::error::Could not parse error details from API response body: $API_BODY"
+            fi
+            exit 1
+          fi
+
+          # API 응답에서 리뷰 텍스트만 추출
+          REVIEW_COMMENT=$(echo "$API_BODY" | jq -r '.candidates[0].content.parts[0].text')
+
+          # REVIEW_COMMENT가 null이거나 비어 있는지 확인
+          if [ -z "$REVIEW_COMMENT" ] || [ "$REVIEW_COMMENT" = "null" ]; then
+            echo "::error::Failed to extract review comment from Gemini API response. The response may have an unexpected format or be empty."
+            # 안전 설정 등으로 인해 후보가 없는 경우 확인
+            if echo "$API_BODY" | jq -e '.candidates' > /dev/null; then
+              echo "::warning::The 'candidates' field exists, but the comment text could not be extracted. This might be due to safety settings or an unusual response structure."
+            fi
+            exit 1
+          fi
+
+          # GitHub Actions에서 멀티라인 문자열을 처리하기 위한 형식
+          echo "review_comment<<EOF" >> $GITHUB_OUTPUT
+          echo "### 🤖 Gemini Code Review" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "$REVIEW_COMMENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Post Review Comment to PR
+        uses: actions/github-script@v7
+        env:
+          REVIEW_COMMENT: "${{ steps.gemini_review.outputs.review_comment }}"
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: process.env.REVIEW_COMMENT
+            })
