@@ -18,6 +18,11 @@ func NewReelsCreationService() *ReelsCreationService {
 
 // CreateCompleteReels - 릴스 제작 전체 과정 (이미지 생성 → 음성 생성 → 비디오 생성 → 합치기 → 정리)
 func (s *ReelsCreationService) CreateCompleteReels(ctx context.Context, request dto.VideoCreationRequest, contentData dto.ContentData, templateConfig dto.TemplateConfig) dto.VideoCreationResponse {
+	return s.CreateCompleteReelsWithFontSize(ctx, request, contentData, templateConfig, 120)
+}
+
+// CreateCompleteReelsWithFontSize - 폰트 크기를 지정하여 릴스 제작 전체 과정을 수행합니다
+func (s *ReelsCreationService) CreateCompleteReelsWithFontSize(ctx context.Context, request dto.VideoCreationRequest, contentData dto.ContentData, templateConfig dto.TemplateConfig, fontSize float64) dto.VideoCreationResponse {
 	response := dto.VideoCreationResponse{
 		ContentCount: contentData.Count,
 		Success:      false,
@@ -46,13 +51,14 @@ func (s *ReelsCreationService) CreateCompleteReels(ctx context.Context, request 
 
 	// 그 다음 기본 이미지들 생성
 	newTemplateImagePath := templateConfig.CountTemplate + ".png"
-	err = imageService.GenerateBasicImages(
+	err = imageService.GenerateBasicImagesWithFontSize(
 		newTemplateImagePath,  // 컨텐츠 개수가 표시된 이미지 템플릿
 		contentData.Primary,   // 영어 단어들 또는 숙어들
 		contentData.Secondary, // 한국어 번역들 또는 의미들
 		contentData.Tertiary,  // 발음들 또는 예문들
 		"images/output",       // 출력 파일 접두사 (images 디렉토리에 저장)
 		contentCount * 2,      // 생성할 이미지 개수 (동적)
+		fontSize,              // 폰트 크기
 	)
 	if err != nil {
 		log.Printf("이미지 생성 실패: %v", err)
@@ -140,6 +146,8 @@ func (s *ReelsCreationService) CreateCompleteReels(ctx context.Context, request 
 		finalFileName = fmt.Sprintf("%02d%02d%02d_word.mp4", request.TargetDate.Year()%100, request.TargetDate.Month(), request.TargetDate.Day())
 	case "I":
 		finalFileName = fmt.Sprintf("%02d%02d%02d_idiom.mp4", request.TargetDate.Year()%100, request.TargetDate.Month(), request.TargetDate.Day())
+	case "S":
+		finalFileName = fmt.Sprintf("%02d%02d%02d_sentence.mp4", request.TargetDate.Year()%100, request.TargetDate.Month(), request.TargetDate.Day())
 	default:
 		finalFileName = fmt.Sprintf("%02d%02d%02d.mp4", request.TargetDate.Year()%100, request.TargetDate.Month(), request.TargetDate.Day())
 	}

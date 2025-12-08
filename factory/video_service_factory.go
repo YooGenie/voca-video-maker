@@ -19,11 +19,14 @@ func (f *VideoServiceFactory) CreateVideo(ctx context.Context, dateFlag *string,
 
 	switch *serviceType {
 	case "W":
-		englishWordService :=videoType.NewEnglishWordService()
+		englishWordService := videoType.NewEnglishWordService()
 		englishWordService.CreateWordsReels(ctx, targetDate, serviceType)
 	case "I":
 		englishIdiomService := videoType.NewEnglishIdiomService()
 		englishIdiomService.CreateIdiomsReels(ctx, targetDate, serviceType)
+	case "SS":
+		shortSentenceService := videoType.NewShortSentenceService()
+		shortSentenceService.CreateShortSentenceReels(ctx, targetDate, serviceType)
 	case "L":
 		longformWordService := videoType.NewLongformWordService()
 		longformWordService.CreateLongformWords(ctx, targetDate, serviceType)
@@ -31,7 +34,7 @@ func (f *VideoServiceFactory) CreateVideo(ctx context.Context, dateFlag *string,
 		startService := videoType.NewStartService()
 		startService.CreateStartCommentVideo(ctx, targetDate, serviceType)
 	default:
-		log.Fatalf("잘못된 서비스 타입입니다. W, I, L, START 중 하나를 선택하세요.")
+		log.Fatalf("잘못된 서비스 타입입니다. W, I, SS, L, START 중 하나를 선택하세요.")
 	}
 
 	if err != nil {

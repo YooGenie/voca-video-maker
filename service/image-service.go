@@ -31,6 +31,19 @@ func (s *ImageService) GenerateBasicImages(
 	outputPrefix string,
 	count int,
 ) error {
+	return s.GenerateBasicImagesWithFontSize(imagePath, eng, kor, pronounce, outputPrefix, count, 120)
+}
+
+// GenerateBasicImagesWithFontSize 단어 학습용 이미지들을 폰트 크기를 지정하여 생성합니다
+func (s *ImageService) GenerateBasicImagesWithFontSize(
+	imagePath string,
+	eng []string,
+	kor []string,
+	pronounce []string,
+	outputPrefix string,
+	count int,
+	fontSize float64,
+) error {
 	// 1. 이미지 불러오기
 	existingImageFile, err := os.Open(imagePath)
 	if err != nil {
@@ -57,8 +70,8 @@ func (s *ImageService) GenerateBasicImages(
 
 	// 폰트 옵션 설정
 	face, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
-		Size:    120, // 폰트 크기 한글
-		DPI:     72,  // DPI (Dots Per Inch)
+		Size:    fontSize, // 폰트 크기 (변수로 처리)
+		DPI:     72,       // DPI (Dots Per Inch)
 		Hinting: font.HintingNone,
 	})
 	if err != nil {
@@ -79,7 +92,6 @@ func (s *ImageService) GenerateBasicImages(
 
 	// 4. 이미지들 생성
 	textColor := color.RGBA{R: 255, G: 255, B: 255, A: 255} // 흰색
-
 	for i := 0; i < count; i++ {
 		// 원본 이미지 복사
 		rgba := image.NewRGBA(img.Bounds())
