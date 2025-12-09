@@ -36,7 +36,7 @@ jobs:
           DIFF_CONTENT=$(jq -Rs . < ${{ steps.diff.outputs.diff_file }})
 
           # Gemini API에 보낼 프롬프트 구성
-          PROMPT="You are an expert Go developer acting as a code reviewer. Please review the following code changes (in git diff format) and provide feedback. Focus on code quality, best practices, potential bugs, and clarity. If there are no issues, simply respond with 'Looks good to me.'. --- GIT DIFF --- ${DIFF_CONTENT}"
+          PROMPT="You are an expert Go developer acting as a code reviewer. Please review the following code changes (in git diff format) and provide feedback in Korean. Focus on code quality, best practices, potential bugs, and clarity. If there are no issues, simply respond with 'Looks good to me.'. --- GIT DIFF --- ${DIFF_CONTENT}"
 
           # API 페이로드 생성
           JSON_PAYLOAD=$(printf '{"contents":[{"parts":[{"text":%s}]}]}' "$(echo "$PROMPT" | jq -sRr @json)")
@@ -92,7 +92,7 @@ jobs:
 
           # GitHub Actions에서 멀티라인 문자열을 처리하기 위한 형식
           echo "review_comment<<EOF" >> $GITHUB_OUTPUT
-          echo "### 🤖 Gemini Code Review" >> $GITHUB_OUTPUT
+          echo "### 🤖 Gemini 코드 리뷰" >> $GITHUB_OUTPUT
           echo "" >> $GITHUB_OUTPUT
           echo "$REVIEW_COMMENT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
