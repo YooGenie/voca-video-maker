@@ -186,6 +186,177 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 	return nil
 }
 
+// GenerateEKImages 단어 학습용 이미지들을 영어 -> 한국어 순서로 생성합니다
+func (s *ImageService) GenerateEKImages(
+	imagePath string,
+	eng []string,
+	kor []string,
+	pronounce []string,
+	outputPrefix string,
+	count int,
+) error {
+	return s.GenerateEKImagesWithFontSize(imagePath, eng, kor, pronounce, outputPrefix, count, 120)
+}
+
+// GenerateEKImagesWithFontSize 단어 학습용 이미지들을 영어 -> 한국어 순서로, 폰트 크기를 지정하여 생성합니다
+func (s *ImageService) GenerateEKImagesWithFontSize(
+	imagePath string,
+	eng []string,
+	kor []string,
+	pronounce []string,
+	outputPrefix string,
+	count int,
+	fontSize float64,
+) error {
+	// 1. 이미지 불러오기
+	existingImageFile, err := os.Open(imagePath)
+	if err != nil {
+		return fmt.Errorf("이미지 파일을 열 수 없습니다: %v", err)
+	}
+	defer existingImageFile.Close()
+
+	// PNG 이미지 디코딩
+	img, err := png.Decode(existingImageFile)
+	if err != nil {
+		return fmt.Errorf("이미지 디코딩 실패: %v", err)
+	}
+
+	// 2. 폰트 불러오기
+	fontBytes, err := os.ReadFile(config.Config.FontPath)
+	if err != nil {
+		return fmt.Errorf("폰트 파일을 읽을 수 없습니다: %v", err)
+	}
+
+	parsedFont, err := opentype.Parse(fontBytes)
+	if err != nil {
+		return fmt.Errorf("폰트 파싱 실패: %v", err)
+	}
+
+	// 폰트 옵션 설정
+	face, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
+		Size:    fontSize, // 폰트 크기 (변수로 처리)
+		DPI:     72,       // DPI (Dots Per Inch)
+		Hinting: font.HintingNone,
+	})
+	if err != nil {
+		return fmt.Errorf("폰트 페이스 생성 실패: %v", err)
+	}
+	defer face.Close()
+
+	// 3. 배열 길이 검증
+	if len(eng) == 0 || len(kor) == 0 {
+		return fmt.Errorf("입력 배열이 비어있습니다: eng=%d, kor=%d", len(eng), len(kor))
+	}
+
+	expectedLength := count / 2
+	if len(eng) < expectedLength || len(kor) < expectedLength {
+		return fmt.Errorf("배열 길이가 부족합니다: 필요=%d, eng=%d, kor=%d",
+			expectedLength, len(eng), len(kor))
+	}
+
+	// 4. 이미지들 생성
+	textColor := color.RGBA{R: 255, G: 255, B: 255, A: 255} // 흰색
+	for i := 0; i < count; i++ {
+		// 원본 이미지 복사
+		rgba := image.NewRGBA(img.Bounds())
+		draw.Draw(rgba, rgba.Bounds(), img, image.Point{}, draw.Src)
+
+		var text string
+		var secondText string
+		
+		isFirstImageOfPair := i%2 == 0
+
+		// EK 타입은 항상 영어 -> 한국어 순서
+		if isFirstImageOfPair {
+			text = eng[i/2]
+			if pronounce != nil && len(pronounce) > i/2 {
+				secondText = "( " + pronounce[i/2] + " )"
+			}
+		} else {
+			text = kor[i/2]
+		}
+
+		// 텍스트 위치 계산
+		textBounds, _ := font.BoundString(face, text)
+		textWidth := (textBounds.Max.X - textBounds.Min.X).Ceil()
+		textHeight := (textBounds.Max.Y - textBounds.Min.Y).Ceil()
+
+		imgWidth := rgba.Bounds().Dx()
+		imgHeight := rgba.Bounds().Dy()
+
+		pointX := (imgWidth - textWidth) / 2
+		pointY := (imgHeight + textHeight) / 2 - 180
+
+		point := fixed.Point26_6{
+			X: fixed.I(pointX),
+			Y: fixed.I(pointY),
+		}
+
+		// 이미지에 텍스트 그리기
+		d := &font.Drawer{
+			Dst:  rgba,
+			Src:  image.NewUniform(textColor),
+			Face: face,
+			Dot:  point,
+		}
+		d.DrawString(text)
+
+		// 두 번째 텍스트가 있으면 아래에 그리기 (작은 폰트 사용)
+		if secondText != "" {
+			// 작은 폰트로 두 번째 텍스트 그리기
+			smallFace, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
+				Size:    75, // 작은 폰트 크기
+				DPI:     72, // DPI (Dots Per Inch)
+				Hinting: font.HintingNone,
+			})
+			if err != nil {
+				return fmt.Errorf("작은 폰트 페이스 생성 실패: %v", err)
+			}
+			defer smallFace.Close()
+
+			smallDrawer := &font.Drawer{
+				Dst:  rgba,
+				Src:  image.NewUniform(textColor),
+				Face: smallFace,
+			}
+
+			secondTextBounds, _ := font.BoundString(smallFace, secondText)
+			secondTextWidth := (secondTextBounds.Max.X - secondTextBounds.Min.X).Ceil()
+
+			secondPointX := (imgWidth - secondTextWidth) / 2
+			secondPointY := pointY + textHeight + 20 // 첫 번째 텍스트 아래 20픽셀 간격
+
+			secondPoint := fixed.Point26_6{
+				X: fixed.I(secondPointX),
+				Y: fixed.I(secondPointY),
+			}
+
+			smallDrawer.Dot = secondPoint
+			smallDrawer.DrawString(secondText)
+		}
+
+		// 이미지 저장
+		outputFileName := fmt.Sprintf("%s_%02d.png", outputPrefix, i+1)
+		outputFile, err := os.Create(outputFileName)
+		if err != nil {
+			return fmt.Errorf("출력 파일을 생성할 수 없습니다: %v", err)
+		}
+
+		err = png.Encode(outputFile, rgba)
+		if err != nil {
+			outputFile.Close()
+			return fmt.Errorf("이미지 인코딩 실패: %v", err)
+		}
+		outputFile.Close()
+
+		fmt.Printf("이미지 %d 생성 완료: %s\n", i+1, outputFileName)
+	}
+
+	fmt.Printf("모든 %d장의 이미지가 성공적으로 생성되었습니다.\n", count)
+	return nil
+}
+
+
 // SetWordCountOnImage wordCount 값을 이미지에 표시하는 이미지를 생성합니다
 func (s *ImageService) SetWordCountOnImage(
 	imagePath string,
