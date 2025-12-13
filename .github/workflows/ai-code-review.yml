@@ -11,6 +11,21 @@ jobs:
       pull-requests: write
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      PROMPT_TEMPLATE: |
+        You are an expert Go developer and a meticulous code reviewer. Your task is to provide a thorough review of the following code changes (in git diff format). Your feedback must be in Korean.
+
+        Your review should be constructive and detailed. Do not just find problems; propose concrete solutions and improvements.
+
+        Your review must cover the following aspects:
+        1.  **Code Quality & Best Practices:** Adherence to Go idioms, best practices, and project-specific conventions outlined in 'GEMINI.md' and '.gemini/CODING_STYLE.md'.
+        2.  **Potential Bugs:** Identify any potential bugs, race conditions, or error handling issues.
+        3.  **Clarity & Readability:** Assess if the code is clear, readable, and easy to maintain.
+        4.  **Concrete Improvement Suggestions:** Provide specific suggestions for improvement. **Include code examples** of how the code could be rewritten or refactored for better performance, readability, or maintainability.
+        5.  **Refactoring Opportunities:** Point out any opportunities for refactoring to reduce complexity or improve the design.
+
+        If there are no issues and the code is perfect, you can respond with '완벽합니다. (LGTM!)'. Otherwise, provide a detailed review.
+
+        --- GIT DIFF ---
 
     steps:
       - name: Checkout Code
@@ -35,8 +50,8 @@ jobs:
           # diff 파일 내용을 JSON에 안전하게 포함시키기 위해 이스케이프
           DIFF_CONTENT=$(jq -Rs . < ${{ steps.diff.outputs.diff_file }})
 
-          # Gemini API에 보낼 프롬프트 구성
-          PROMPT="You are an expert Go developer acting as a code reviewer. Please review the following code changes (in git diff format) and provide feedback in Korean. Focus on code quality, best practices, potential bugs, and clarity. If there are no issues, simply respond with 'Looks good to me.'. --- GIT DIFF --- ${DIFF_CONTENT}"
+          # 템플릿과 diff 내용을 합쳐 최종 프롬프트 구성
+          PROMPT="${PROMPT_TEMPLATE}${DIFF_CONTENT}"
 
           # API 페이로드 생성
           JSON_PAYLOAD=$(printf '{"contents":[{"parts":[{"text":%s}]}]}' "$(echo "$PROMPT" | jq -sRr @json)")
