@@ -31,14 +31,16 @@ func (s *ImageService) GenerateBasicImages(
 	outputPrefix string,
 	count int,
 ) error {
-	return s.GenerateBasicImagesWithFontSize(imagePath, eng, kor, pronounce, outputPrefix, count, 120)
+	return s.GenerateBasicImagesWithFontSize(imagePath, eng, []string{}, kor, []string{}, pronounce, outputPrefix, count, 120)
 }
 
 // GenerateBasicImagesWithFontSize 단어 학습용 이미지들을 폰트 크기를 지정하여 생성합니다
 func (s *ImageService) GenerateBasicImagesWithFontSize(
 	imagePath string,
 	eng []string,
+	engLine2 []string, // 영어 두 번째 줄 (SS 타입 전용)
 	kor []string,
+	korLine2 []string, // 한국어 두 번째 줄 (SS 타입 전용)
 	pronounce []string,
 	outputPrefix string,
 	count int,
@@ -70,10 +72,10 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 	if len(eng) == 0 || len(kor) == 0 || len(pronounce) == 0 {
 		return fmt.Errorf("입력 배열이 비어있습니다: eng=%d, kor=%d, pronounce=%d", len(eng), len(kor), len(pronounce))
 	}
-	
+
 	expectedLength := count / 2
 	if len(eng) < expectedLength || len(kor) < expectedLength || len(pronounce) < expectedLength {
-		return fmt.Errorf("배열 길이가 부족합니다: 필요=%d, eng=%d, kor=%d, pronounce=%d", 
+		return fmt.Errorf("배열 길이가 부족합니다: 필요=%d, eng=%d, kor=%d, pronounce=%d",
 			expectedLength, len(eng), len(kor), len(pronounce))
 	}
 
@@ -86,11 +88,22 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 
 		var text string
 		var secondText string
-		if i%2 == 0 { // 홀수 번째 (0, 2, 4, ...) - 한국어
+		var thirdText string
+
+		if i%2 == 0 { // 짝수 번째 (0, 2, 4, ...) - 한국어
 			text = kor[i/2]
-		} else { // 짝수 번째 (1, 3, 5, ...) - 영어 + 발음
+			// SS 타입: korLine2가 있으면 두 번째 줄로 표시
+			if len(korLine2) > i/2 && korLine2[i/2] != "" {
+				secondText = korLine2[i/2]
+			}
+		} else { // 홀수 번째 (1, 3, 5, ...) - 영어
 			text = eng[i/2]
-			secondText = "( " + pronounce[i/2] + " )"
+			// SS 타입: engLine2가 있으면 두 번째 줄로 표시
+			if len(engLine2) > i/2 && engLine2[i/2] != "" {
+				secondText = engLine2[i/2]
+			}
+			// 발음은 항상 세 번째 줄
+			thirdText = "( " + pronounce[i/2] + " )"
 		}
 
 		// ===== 글자 길이에 따른 동적 폰트 크기 조절 로직 시작 =====
@@ -139,7 +152,7 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 		textHeight := (textBounds.Max.Y - textBounds.Min.Y).Ceil()
 
 		pointX := (imgWidth - textWidth) / 2
-		pointY := (imgHeight + textHeight) / 2 - 180
+		pointY := (imgHeight+textHeight)/2 - 180
 
 		// 이미지에 텍스트 그리기
 		d := &font.Drawer{
@@ -151,32 +164,111 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 		d.DrawString(text)
 		face.Close() // 텍스트를 그린 후 face를 닫아줍니다.
 
-		// 두 번째 텍스트가 있으면 아래에 그리기 (작은 폰트 사용)
+		// 두 번째 텍스트가 있으면 아래에 그리기
 		if secondText != "" {
-			smallFace, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
-				Size:    75, // 작은 폰트 크기
-				DPI:     72,
-				Hinting: font.HintingFull,
-			})
-			if err != nil {
-				return fmt.Errorf("작은 폰트 페이스 생성 실패: %v", err)
+			var secondFace font.Face
+			var secondFontSize float64 = fontSize // 최대 폰트 크기로 시작
+
+			// 두 번째 텍스트도 동적 폰트 크기 조절
+			for {
+				var faceErr error
+				secondFace, faceErr = opentype.NewFace(parsedFont, &opentype.FaceOptions{
+					Size:    secondFontSize,
+					DPI:     72,
+					Hinting: font.HintingFull,
+				})
+				if faceErr != nil {
+					return fmt.Errorf("두 번째 줄 폰트 페이스 생성 실패: %v", faceErr)
+				}
+
+				secondTextBounds, _ := font.BoundString(secondFace, secondText)
+				secondTextWidth := (secondTextBounds.Max.X - secondTextBounds.Min.X).Ceil()
+
+				if secondTextWidth > maxTextWidth {
+					secondFace.Close()
+					secondFontSize -= 10
+					if secondFontSize < 20 {
+						break
+					}
+					continue
+				}
+				break
 			}
 
-			smallDrawer := &font.Drawer{
+			secondDrawer := &font.Drawer{
 				Dst:  rgba,
 				Src:  image.NewUniform(textColor),
-				Face: smallFace,
+				Face: secondFace,
 			}
 
-			secondTextBounds, _ := font.BoundString(smallFace, secondText)
-			secondTextWidth := (secondTextBounds.Max.X - secondTextBounds.Min.X).Ceil()
+			var secondTextWidth, secondTextHeight int
+			secondTextBounds, _ := font.BoundString(secondFace, secondText)
+			secondTextWidth = (secondTextBounds.Max.X - secondTextBounds.Min.X).Ceil()
+			secondTextHeight = (secondTextBounds.Max.Y - secondTextBounds.Min.Y).Ceil()
 
 			secondPointX := (imgWidth - secondTextWidth) / 2
 			secondPointY := pointY + textHeight + 20 // 첫 번째 텍스트 아래 20픽셀 간격
 
-			smallDrawer.Dot = fixed.Point26_6{X: fixed.I(secondPointX), Y: fixed.I(secondPointY)}
-			smallDrawer.DrawString(secondText)
-			smallFace.Close()
+			secondDrawer.Dot = fixed.Point26_6{X: fixed.I(secondPointX), Y: fixed.I(secondPointY)}
+			secondDrawer.DrawString(secondText)
+
+			// 세 번째 텍스트(발음)가 있으면 아래에 그리기
+			if thirdText != "" {
+				thirdFace, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
+					Size:    75, // 발음은 작은 폰트
+					DPI:     72,
+					Hinting: font.HintingFull,
+				})
+				if err != nil {
+					secondFace.Close()
+					return fmt.Errorf("세 번째 줄 폰트 페이스 생성 실패: %v", err)
+				}
+
+				thirdDrawer := &font.Drawer{
+					Dst:  rgba,
+					Src:  image.NewUniform(textColor),
+					Face: thirdFace,
+				}
+
+				thirdTextBounds, _ := font.BoundString(thirdFace, thirdText)
+				thirdTextWidth := (thirdTextBounds.Max.X - thirdTextBounds.Min.X).Ceil()
+
+				thirdPointX := (imgWidth - thirdTextWidth) / 2
+				thirdPointY := secondPointY + secondTextHeight + 20 // 두 번째 텍스트 아래 20픽셀 간격
+
+				thirdDrawer.Dot = fixed.Point26_6{X: fixed.I(thirdPointX), Y: fixed.I(thirdPointY)}
+				thirdDrawer.DrawString(thirdText)
+				thirdFace.Close()
+			}
+
+			secondFace.Close()
+		} else if thirdText != "" {
+			// 두 번째 텍스트가 없고 세 번째 텍스트(발음)만 있는 경우
+			// 발음을 두 번째 줄 위치에 표시
+			thirdFace, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
+				Size:    75, // 발음은 작은 폰트
+				DPI:     72,
+				Hinting: font.HintingFull,
+			})
+			if err != nil {
+				return fmt.Errorf("발음 폰트 페이스 생성 실패: %v", err)
+			}
+
+			thirdDrawer := &font.Drawer{
+				Dst:  rgba,
+				Src:  image.NewUniform(textColor),
+				Face: thirdFace,
+			}
+
+			thirdTextBounds, _ := font.BoundString(thirdFace, thirdText)
+			thirdTextWidth := (thirdTextBounds.Max.X - thirdTextBounds.Min.X).Ceil()
+
+			thirdPointX := (imgWidth - thirdTextWidth) / 2
+			thirdPointY := pointY + textHeight + 20 // 첫 번째 텍스트 아래 20픽셀 간격
+
+			thirdDrawer.Dot = fixed.Point26_6{X: fixed.I(thirdPointX), Y: fixed.I(thirdPointY)}
+			thirdDrawer.DrawString(thirdText)
+			thirdFace.Close()
 		}
 
 		// 이미지 저장
@@ -277,7 +369,7 @@ func (s *ImageService) GenerateEKImagesWithFontSize(
 
 		var text string
 		var secondText string
-		
+
 		isFirstImageOfPair := i%2 == 0
 
 		// EK 타입은 항상 영어 -> 한국어 순서
@@ -299,7 +391,7 @@ func (s *ImageService) GenerateEKImagesWithFontSize(
 		imgHeight := rgba.Bounds().Dy()
 
 		pointX := (imgWidth - textWidth) / 2
-		pointY := (imgHeight + textHeight) / 2 - 180
+		pointY := (imgHeight+textHeight)/2 - 180
 
 		point := fixed.Point26_6{
 			X: fixed.I(pointX),
@@ -370,7 +462,6 @@ func (s *ImageService) GenerateEKImagesWithFontSize(
 	return nil
 }
 
-
 // SetWordCountOnImage wordCount 값을 이미지에 표시하는 이미지를 생성합니다
 func (s *ImageService) SetWordCountOnImage(
 	imagePath string,
@@ -420,7 +511,7 @@ func (s *ImageService) SetWordCountOnImage(
 	// wordCount 텍스트 설정
 	text := wordCountText
 	var textColor color.RGBA
-	
+
 	// 서비스 타입에 따라 글자색 설정
 	switch serviceType {
 	case "W":
@@ -500,7 +591,7 @@ func (s *ImageService) SetTitleOnImage(title, subTitle, imagePath, outputPath st
 	// Set font options
 	face, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
 		Size:    80, // Font size
-		DPI:     72,  // DPI (Dots Per Inch)
+		DPI:     72, // DPI (Dots Per Inch)
 		Hinting: font.HintingNone,
 	})
 	if err != nil {
@@ -523,8 +614,8 @@ func (s *ImageService) SetTitleOnImage(title, subTitle, imagePath, outputPath st
 	imgHeight := rgba.Bounds().Dy()
 
 	// Move to right and up to avoid left character
-	pointX := (imgWidth - textWidth) / 2 + 250 // Right offset
-	pointY := (imgHeight + textHeight) / 2 - 100 // Up offset
+	pointX := (imgWidth-textWidth)/2 + 250   // Right offset
+	pointY := (imgHeight+textHeight)/2 - 100 // Up offset
 
 	point := fixed.Point26_6{
 		X: fixed.I(pointX),
@@ -545,8 +636,8 @@ func (s *ImageService) SetTitleOnImage(title, subTitle, imagePath, outputPath st
 		subTitleBounds, _ := font.BoundString(face, subTitle)
 		subTitleWidth := (subTitleBounds.Max.X - subTitleBounds.Min.X).Ceil()
 
-		subTitlePointX := (imgWidth - subTitleWidth) / 2 + 250 // Right offset
-		subTitlePointY := pointY + textHeight + 30 // Below title with 30px spacing
+		subTitlePointX := (imgWidth-subTitleWidth)/2 + 250 // Right offset
+		subTitlePointY := pointY + textHeight + 30         // Below title with 30px spacing
 
 		subTitlePoint := fixed.Point26_6{
 			X: fixed.I(subTitlePointX),
