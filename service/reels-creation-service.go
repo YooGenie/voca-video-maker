@@ -34,30 +34,39 @@ func (s *ReelsCreationService) CreateCompleteReelsWithFontSize(ctx context.Conte
 	// 1. 조회된 컨텐츠 개수만큼 이미지 생성
 	contentCount := contentData.Count
 
-	// 먼저 컨텐츠 개수를 표시하는 이미지 생성
-	err := imageService.SetWordCountOnImage(
-		templateConfig.BaseTemplate,                    // 기본 이미지 템플릿
-		fmt.Sprintf("%d", contentCount),               // contentCount를 문자열로 변환
-		templateConfig.CountTemplate,                  // 출력 파일명
-		request.ServiceType,                          // 서비스 타입 (W 또는 I)
-	)
-	if err != nil {
-		log.Printf("contentCount 이미지 생성 실패: %v", err)
-		response.Error = err
-		return response
+	var newTemplateImagePath string
+	var err error
+
+	// SS 타입은 카운트를 표시하지 않으므로 카운트 이미지 생성을 건너뜀
+	if request.ServiceType == "SS" {
+		log.Println("SS 타입은 카운트를 표시하지 않으므로 기본 템플릿을 사용합니다.")
+		newTemplateImagePath = templateConfig.BaseTemplate
 	} else {
-		log.Println("contentCount 이미지 생성 완료!")
+		// 먼저 컨텐츠 개수를 표시하는 이미지 생성
+		err = imageService.SetWordCountOnImage(
+			templateConfig.BaseTemplate,     // 기본 이미지 템플릿
+			fmt.Sprintf("%d", contentCount), // contentCount를 문자열로 변환
+			templateConfig.CountTemplate,    // 출력 파일명
+			request.ServiceType,             // 서비스 타입 (W 또는 I)
+		)
+		if err != nil {
+			log.Printf("contentCount 이미지 생성 실패: %v", err)
+			response.Error = err
+			return response
+		} else {
+			log.Println("contentCount 이미지 생성 완료!")
+		}
+		newTemplateImagePath = templateConfig.CountTemplate + ".png"
 	}
 
 	// 그 다음 기본 이미지들 생성
-	newTemplateImagePath := templateConfig.CountTemplate + ".png"
 	err = imageService.GenerateBasicImagesWithFontSize(
 		newTemplateImagePath,  // 컨텐츠 개수가 표시된 이미지 템플릿
 		contentData.Primary,   // 영어 단어들 또는 숙어들
 		contentData.Secondary, // 한국어 번역들 또는 의미들
 		contentData.Tertiary,  // 발음들 또는 예문들
 		"images/output",       // 출력 파일 접두사 (images 디렉토리에 저장)
-		contentCount * 2,      // 생성할 이미지 개수 (동적)
+		contentCount*2,        // 생성할 이미지 개수 (동적)
 		fontSize,              // 폰트 크기
 	)
 	if err != nil {
@@ -110,12 +119,12 @@ func (s *ReelsCreationService) CreateCompleteReelsWithFontSize(ctx context.Conte
 	// 4. 각 이미지에 음성을 추가한 영상 생성
 	for i := 0; i < contentCount*2; i++ {
 		var outputPath string
-		
+
 		if i%2 == 0 { // 짝수 - 한국어
 			imagePath := fmt.Sprintf("images/output_%02d.png", i+1)
 			koreanAudioPath := fmt.Sprintf("audio/kor_%d.mp3", i/2)
 			outputPath = fmt.Sprintf("videos/video_%d.mp4", i)
-			
+
 			if err := videoService.CreateVideoWithKorean(imagePath, koreanAudioPath, outputPath, 0.5); err != nil {
 				log.Printf("한국어 영상 생성 실패 (%d): %v", i, err)
 				response.Error = err
@@ -125,14 +134,14 @@ func (s *ReelsCreationService) CreateCompleteReelsWithFontSize(ctx context.Conte
 			imagePath := fmt.Sprintf("images/output_%02d.png", i+1)
 			englishAudioPath := fmt.Sprintf("audio/eng_%d.mp3", i/2)
 			outputPath = fmt.Sprintf("videos/video_%d.mp4", i)
-			
+
 			if err := videoService.CreateVideoWithEnglish(imagePath, englishAudioPath, outputPath, 0.5); err != nil {
 				log.Printf("영어 영상 생성 실패 (%d): %v", i, err)
 				response.Error = err
 				return response
 			}
 		}
-		
+
 		log.Printf("영상 생성 완료: %d/%d", i+1, contentCount*2)
 	}
 
