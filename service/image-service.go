@@ -31,7 +31,7 @@ func (s *ImageService) GenerateBasicImages(
 	outputPrefix string,
 	count int,
 ) error {
-	return s.GenerateBasicImagesWithFontSize(imagePath, eng, []string{}, kor, []string{}, pronounce, outputPrefix, count, 120)
+	return s.GenerateBasicImagesWithFontSize(imagePath, eng, []string{}, kor, []string{}, pronounce, outputPrefix, count, 120, "white")
 }
 
 // GenerateBasicImagesWithFontSize 단어 학습용 이미지들을 폰트 크기를 지정하여 생성합니다
@@ -45,6 +45,7 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 	outputPrefix string,
 	count int,
 	fontSize float64, // This will be treated as the maximum font size
+	textColorStr string, // 텍스트 색상 ("white" 또는 "black")
 ) error {
 	// 1. 이미지 불러오기
 	existingImageFile, err := os.Open(imagePath)
@@ -79,8 +80,15 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 			expectedLength, len(eng), len(kor), len(pronounce))
 	}
 
-	// 4. 이미지들 생성
-	textColor := color.RGBA{R: 255, G: 255, B: 255, A: 255} // 흰색
+	// 4. 텍스트 색상 결정
+	var textColor color.RGBA
+	if textColorStr == "black" {
+		textColor = color.RGBA{R: 0, G: 0, B: 0, A: 255} // 검정색
+	} else {
+		textColor = color.RGBA{R: 255, G: 255, B: 255, A: 255} // 흰색 (기본값)
+	}
+
+	// 5. 이미지들 생성
 	for i := 0; i < count; i++ {
 		// 원본 이미지 복사
 		rgba := image.NewRGBA(img.Bounds())
