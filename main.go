@@ -12,9 +12,21 @@ import (
 )
 
 func main() {
-	// 명령행 인자 정의
-	dateFlag := flag.String("date", "", "날짜 지정 (YYYYMMDD 형식). 미입력 시 오늘 날짜로 자동 설정됩니다.")
-	typeFlag := flag.String("type", "", "서비스 타입 (W, I, SS, EK, L, START 중 하나). 필수 입력입니다.")
+	// YAML 설정 파일에서 기본값 로드
+	cliCfg, err := config.LoadCliConfig("config/config.yaml")
+	if err != nil {
+		log.Fatalf("설정 파일을 읽는 중 에러 발생: %v", err)
+	}
+
+	// 날짜 기본값 처리: config.yaml에 'today'라고 되어있거나 비어있으면 오늘 날짜로 설정
+	defaultDate := cliCfg.Video.Date
+	if defaultDate == "today" || defaultDate == "" {
+		defaultDate = time.Now().Format("20060102")
+	}
+
+	// 명령행 인자 정의 (기본값으로 YAML 설정값 사용)
+	dateFlag := flag.String("date", defaultDate, "날짜 지정 (YYYYMMDD 형식). 미입력 시 config.yaml 또는 오늘 날짜로 자동 설정됩니다.")
+	typeFlag := flag.String("type", cliCfg.Video.Type, "서비스 타입 (W, I, SS, EK, L, START 중 하나). 필수 입력입니다.")
 	flag.Parse()
 
 	// 타입 플래그 유효성 검사
@@ -24,19 +36,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 날짜 플래그 처리
+	// 날짜 형식 유효성 검사
 	date := *dateFlag
-	if date == "" {
-		date = time.Now().Format("20060102")
-		log.Printf("정보: -date 플래그가 없어 오늘 날짜인 %s로 설정합니다.", date)
-	} else {
-		// 날짜 형식 유효성 검사
-		_, err := time.Parse("20060102", date)
-		if err != nil {
-			log.Printf("에러: 날짜 형식이 잘못되었습니다. YYYYMMDD 형식으로 입력해주세요. (입력값: %s)", date)
-			os.Exit(1)
-		}
+	_, err = time.Parse("20060102", date)
+	if err != nil {
+		log.Printf("에러: 날짜 형식이 잘못되었습니다. YYYYMMDD 형식으로 입력해주세요. (입력값: %s)", date)
+		os.Exit(1)
 	}
+	log.Printf("정보: 최종 설정된 날짜는 %s 입니다.", date)
+	
 
 	// 설정 파일 로드
 	config.InitConfig("config/config.json")

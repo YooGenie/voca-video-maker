@@ -42,7 +42,7 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 	pronounce []string,
 	outputPrefix string,
 	count int,
-	fontSize float64,
+	fontSize float64, // This will be treated as the maximum font size
 ) error {
 	// 1. 이미지 불러오기
 	existingImageFile, err := os.Open(imagePath)
@@ -51,7 +51,6 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 	}
 	defer existingImageFile.Close()
 
-	// PNG 이미지 디코딩
 	img, err := png.Decode(existingImageFile)
 	if err != nil {
 		return fmt.Errorf("이미지 디코딩 실패: %v", err)
@@ -62,22 +61,10 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 	if err != nil {
 		return fmt.Errorf("폰트 파일을 읽을 수 없습니다: %v", err)
 	}
-
 	parsedFont, err := opentype.Parse(fontBytes)
 	if err != nil {
 		return fmt.Errorf("폰트 파싱 실패: %v", err)
 	}
-
-	// 폰트 옵션 설정
-	face, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
-		Size:    fontSize, // 폰트 크기 (변수로 처리)
-		DPI:     72,       // DPI (Dots Per Inch)
-		Hinting: font.HintingNone,
-	})
-	if err != nil {
-		return fmt.Errorf("폰트 페이스 생성 실패: %v", err)
-	}
-	defer face.Close()
 
 	// 3. 배열 길이 검증
 	if len(eng) == 0 || len(kor) == 0 || len(pronounce) == 0 {
@@ -99,50 +86,81 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 
 		var text string
 		var secondText string
-		if i%2 == 0 { // 홀수 번째 (0, 2, 4, ...) - 영어
+		if i%2 == 0 { // 홀수 번째 (0, 2, 4, ...) - 한국어
 			text = kor[i/2]
-		} else { // 짝수 번째 (1, 3, 5, ...) - 한국어 + 발음
+		} else { // 짝수 번째 (1, 3, 5, ...) - 영어 + 발음
 			text = eng[i/2]
 			secondText = "( " + pronounce[i/2] + " )"
 		}
+
+		// ===== 글자 길이에 따른 동적 폰트 크기 조절 로직 시작 =====
+		var face font.Face
+		currentFontSize := fontSize // 제공된 폰트 크기를 최대 크기로 시작
+		imgWidth := rgba.Bounds().Dx()
+		imgHeight := rgba.Bounds().Dy()
+
+		// 비디오 방향(가로/세로)에 따라 최대 텍스트 너비 조정
+		var maxTextWidth int
+		if imgWidth > imgHeight { // 가로형 비디오
+			maxTextWidth = int(float64(imgWidth) * 0.8) // 너비의 80%
+		} else { // 세로형 비디오
+			maxTextWidth = int(float64(imgWidth) * 0.9) // 너비의 90%
+		}
+
+		for {
+			var faceErr error
+			face, faceErr = opentype.NewFace(parsedFont, &opentype.FaceOptions{
+				Size:    currentFontSize,
+				DPI:     72,
+				Hinting: font.HintingFull,
+			})
+			if faceErr != nil {
+				return fmt.Errorf("폰트 페이스 생성 실패: %v", faceErr)
+			}
+
+			textBounds, _ := font.BoundString(face, text)
+			textWidth := (textBounds.Max.X - textBounds.Min.X).Ceil()
+
+			if textWidth > maxTextWidth {
+				face.Close() // 중요: 더 이상 사용하지 않을 face는 닫아줍니다.
+				currentFontSize -= 10
+				if currentFontSize < 20 { // 최소 폰트 크기 제한
+					break
+				}
+				continue
+			}
+			break // 텍스트가 너비에 맞으면 루프 종료
+		}
+		// ===== 동적 폰트 크기 조절 로직 끝 =====
 
 		// 텍스트 위치 계산
 		textBounds, _ := font.BoundString(face, text)
 		textWidth := (textBounds.Max.X - textBounds.Min.X).Ceil()
 		textHeight := (textBounds.Max.Y - textBounds.Min.Y).Ceil()
 
-		imgWidth := rgba.Bounds().Dx()
-		imgHeight := rgba.Bounds().Dy()
-
 		pointX := (imgWidth - textWidth) / 2
 		pointY := (imgHeight + textHeight) / 2 - 180
-
-		point := fixed.Point26_6{
-			X: fixed.I(pointX),
-			Y: fixed.I(pointY),
-		}
 
 		// 이미지에 텍스트 그리기
 		d := &font.Drawer{
 			Dst:  rgba,
 			Src:  image.NewUniform(textColor),
 			Face: face,
-			Dot:  point,
+			Dot:  fixed.Point26_6{X: fixed.I(pointX), Y: fixed.I(pointY)},
 		}
 		d.DrawString(text)
+		face.Close() // 텍스트를 그린 후 face를 닫아줍니다.
 
 		// 두 번째 텍스트가 있으면 아래에 그리기 (작은 폰트 사용)
 		if secondText != "" {
-			// 작은 폰트로 두 번째 텍스트 그리기
 			smallFace, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
 				Size:    75, // 작은 폰트 크기
-				DPI:     72, // DPI (Dots Per Inch)
-				Hinting: font.HintingNone,
+				DPI:     72,
+				Hinting: font.HintingFull,
 			})
 			if err != nil {
 				return fmt.Errorf("작은 폰트 페이스 생성 실패: %v", err)
 			}
-			defer smallFace.Close()
 
 			smallDrawer := &font.Drawer{
 				Dst:  rgba,
@@ -156,13 +174,9 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 			secondPointX := (imgWidth - secondTextWidth) / 2
 			secondPointY := pointY + textHeight + 20 // 첫 번째 텍스트 아래 20픽셀 간격
 
-			secondPoint := fixed.Point26_6{
-				X: fixed.I(secondPointX),
-				Y: fixed.I(secondPointY),
-			}
-
-			smallDrawer.Dot = secondPoint
+			smallDrawer.Dot = fixed.Point26_6{X: fixed.I(secondPointX), Y: fixed.I(secondPointY)}
 			smallDrawer.DrawString(secondText)
+			smallFace.Close()
 		}
 
 		// 이미지 저장
