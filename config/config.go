@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/jinzhu/configor"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -29,6 +30,43 @@ var Config = struct {
 	StartAudioPath string
 	GoodImagePath string
 }{}
+
+// CliConfig holds the configuration for the CLI application, read from config.yaml
+type CliConfig struct {
+	Video struct {
+		Type string `yaml:"type"`
+		Date string `yaml:"date"`
+	} `yaml:"video"`
+}
+
+// LoadCliConfig reads the config.yaml file and returns the configuration.
+func LoadCliConfig(path string) (*CliConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		// If the file doesn't exist, return a default config.
+		if os.IsNotExist(err) {
+			return &CliConfig{
+				Video: struct {
+					Type string `yaml:"type"`
+					Date string `yaml:"date"`
+				}{
+					Type: "W",
+					Date: "today",
+				},
+			}, nil
+		}
+		return nil, fmt.Errorf("error reading config file: %w", err)
+	}
+
+	var cfg CliConfig
+	err = yaml.Unmarshal(data, &cfg)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshaling config: %w", err)
+	}
+
+	return &cfg, nil
+}
+
 
 func InitConfig(cfg string) {
 	configor.Load(&Config, cfg)
