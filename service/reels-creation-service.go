@@ -61,13 +61,15 @@ func (s *ReelsCreationService) CreateCompleteReelsWithFontSize(ctx context.Conte
 
 	// 그 다음 기본 이미지들 생성
 	err = imageService.GenerateBasicImagesWithFontSize(
-		newTemplateImagePath,  // 컨텐츠 개수가 표시된 이미지 템플릿
-		contentData.Primary,   // 영어 단어들 또는 숙어들
-		contentData.Secondary, // 한국어 번역들 또는 의미들
-		contentData.Tertiary,  // 발음들 또는 예문들
-		"images/output",       // 출력 파일 접두사 (images 디렉토리에 저장)
-		contentCount*2,        // 생성할 이미지 개수 (동적)
-		fontSize,              // 폰트 크기
+		newTemplateImagePath,       // 컨텐츠 개수가 표시된 이미지 템플릿
+		contentData.Primary,        // 영어 단어들 또는 숙어들
+		contentData.PrimaryLine2,   // 영어 두 번째 줄 (SS 타입 전용)
+		contentData.Secondary,      // 한국어 번역들 또는 의미들
+		contentData.SecondaryLine2, // 한국어 두 번째 줄 (SS 타입 전용)
+		contentData.Tertiary,       // 발음들 또는 예문들
+		"images/output",            // 출력 파일 접두사 (images 디렉토리에 저장)
+		contentCount*2,             // 생성할 이미지 개수 (동적)
+		fontSize,                   // 폰트 크기
 	)
 	if err != nil {
 		log.Printf("이미지 생성 실패: %v", err)
@@ -93,8 +95,15 @@ func (s *ReelsCreationService) CreateCompleteReelsWithFontSize(ctx context.Conte
 	log.Println("🎤 영어 컨텐츠 원어민 음성을 생성합니다...")
 	for i, content := range contentData.Primary {
 		audioPath := fmt.Sprintf("%s/eng_%d.mp3", audioDir, i)
-		if err := audioService.CreateNativeEnglishAudio(content, audioPath); err != nil {
-			log.Printf("영어 원어민 음성 생성 실패 (%s): %v", content, err)
+
+		// PrimaryLine2가 있으면 함께 읽기 (SS 타입의 경우)
+		fullContent := content
+		if len(contentData.PrimaryLine2) > i && contentData.PrimaryLine2[i] != "" {
+			fullContent = content + " " + contentData.PrimaryLine2[i]
+		}
+
+		if err := audioService.CreateNativeEnglishAudio(fullContent, audioPath); err != nil {
+			log.Printf("영어 원어민 음성 생성 실패 (%s): %v", fullContent, err)
 		}
 	}
 
@@ -102,8 +111,15 @@ func (s *ReelsCreationService) CreateCompleteReelsWithFontSize(ctx context.Conte
 	log.Println("🎤 한국어 컨텐츠 음성을 생성합니다...")
 	for i, content := range contentData.Secondary {
 		audioPath := fmt.Sprintf("%s/kor_%d.mp3", audioDir, i)
-		if err := audioService.CreateKoreanAudioWithRate(content, audioPath, 175); err != nil {
-			log.Printf("한국어 음성 생성 실패 (%s): %v", content, err)
+
+		// SecondaryLine2가 있으면 함께 읽기 (SS 타입의 경우)
+		fullContent := content
+		if len(contentData.SecondaryLine2) > i && contentData.SecondaryLine2[i] != "" {
+			fullContent = content + " " + contentData.SecondaryLine2[i]
+		}
+
+		if err := audioService.CreateKoreanAudioWithRate(fullContent, audioPath, 175); err != nil {
+			log.Printf("한국어 음성 생성 실패 (%s): %v", fullContent, err)
 		}
 	}
 

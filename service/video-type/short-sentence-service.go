@@ -18,7 +18,7 @@ func NewShortSentenceService() *ShortSentenceService {
 
 func (s *ShortSentenceService) CreateShortSentenceReels(ctx context.Context, targetDate time.Time, serviceType *string) {
 	// 1. DB에서 데이터 조회 및 가공
-	engSentences, korSentences, pronunciations, err := s.GetShortSentencesByDate(ctx, targetDate)
+	engSentences, engSentences2, korSentences, korSentences2, pronunciations, err := s.GetShortSentencesByDate(ctx, targetDate)
 	if err != nil {
 		log.Fatalf("단문 조회 실패: %v", err)
 	}
@@ -30,10 +30,12 @@ func (s *ShortSentenceService) CreateShortSentenceReels(ctx context.Context, tar
 	}
 
 	contentData := dto.ContentData{
-		Primary:   engSentences,
-		Secondary: korSentences,
-		Tertiary:  pronunciations,
-		Count:     len(engSentences),
+		Primary:        engSentences,
+		PrimaryLine2:   engSentences2, // 영어 두 번째 줄
+		Secondary:      korSentences,
+		SecondaryLine2: korSentences2, // 한국어 두 번째 줄
+		Tertiary:       pronunciations,
+		Count:          len(engSentences),
 	}
 
 	// 'SS' 타입에 맞는 템플릿 설정
@@ -60,34 +62,41 @@ func (s *ShortSentenceService) CreateShortSentenceReels(ctx context.Context, tar
 }
 
 // GetShortSentencesByDate - DB에서 데이터를 가져와 릴스 생성 서비스가 이해할 수 있는 형식으로 가공
-func (s *ShortSentenceService) GetShortSentencesByDate(ctx context.Context, targetDate time.Time) (engs []string, kors []string, pros []string, err error) {
+func (s *ShortSentenceService) GetShortSentencesByDate(ctx context.Context, targetDate time.Time) (engs []string, engs2 []string, kors []string, kors2 []string, pros []string, err error) {
 	repo := repository.ShortSentenceRepository()
 	dateStr := targetDate.Format("20060102")
 
 	dbData, err := repo.FindByDate(ctx, dateStr)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("데이터베이스 조회 실패: %w", err)
+		return nil, nil, nil, nil, nil, fmt.Errorf("데이터베이스 조회 실패: %w", err)
 	}
 
 	if len(dbData) == 0 {
-		return nil, nil, nil, fmt.Errorf("%s에 생성된 단문이 없습니다", dateStr)
+		return nil, nil, nil, nil, nil, fmt.Errorf("%s에 생성된 단문이 없습니다", dateStr)
 	}
 
-	// DB 데이터를 릴스 생성 서비스에 맞는 형식으로 변환 (Flatten)
+	// DB 데이터를 릴스 생성 서비스에 맞는 형식으로 변환
+	// EnglishSentence1/2와 KoreanSentence1/2를 별도 배열로 관리
 	for _, data := range dbData {
-		// 첫 번째 문장 쌍 추가
 		engs = append(engs, data.EnglishSentence1)
 		kors = append(kors, data.KoreanSentence1)
 		pros = append(pros, data.Pronunciation)
 
-		// 두 번째 문장 쌍이 존재하면 추가
-		if data.EnglishSentence2.Valid && data.KoreanSentence2.Valid {
-			engs = append(engs, data.EnglishSentence2.String)
-			kors = append(kors, data.KoreanSentence2.String)
-			pros = append(pros, data.Pronunciation) // 동일한 발음 정보 사용
+		// EnglishSentence2가 있으면 추가, 없으면 빈 문자열
+		if data.EnglishSentence2.Valid {
+			engs2 = append(engs2, data.EnglishSentence2.String)
+		} else {
+			engs2 = append(engs2, "")
+		}
+
+		// KoreanSentence2가 있으면 추가, 없으면 빈 문자열
+		if data.KoreanSentence2.Valid {
+			kors2 = append(kors2, data.KoreanSentence2.String)
+		} else {
+			kors2 = append(kors2, "")
 		}
 	}
 
 	log.Printf("데이터베이스에서 %s 날짜의 %d개 행을 조회하여 %d개의 클립 데이터를 생성했습니다.", dateStr, len(dbData), len(engs))
-	return engs, kors, pros, nil
+	return engs, engs2, kors, kors2, pros, nil
 }
