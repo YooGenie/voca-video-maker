@@ -70,6 +70,7 @@ func (s *ReelsCreationService) CreateCompleteReelsWithFontSize(ctx context.Conte
 		"images/output",            // 출력 파일 접두사 (images 디렉토리에 저장)
 		contentCount*2,             // 생성할 이미지 개수 (동적)
 		fontSize,                   // 폰트 크기
+		templateConfig.TextColor,   // 텍스트 색상
 	)
 	if err != nil {
 		log.Printf("이미지 생성 실패: %v", err)
@@ -171,6 +172,8 @@ func (s *ReelsCreationService) CreateCompleteReelsWithFontSize(ctx context.Conte
 		finalFileName = fmt.Sprintf("%02d%02d%02d_word.mp4", request.TargetDate.Year()%100, request.TargetDate.Month(), request.TargetDate.Day())
 	case "I":
 		finalFileName = fmt.Sprintf("%02d%02d%02d_idiom.mp4", request.TargetDate.Year()%100, request.TargetDate.Month(), request.TargetDate.Day())
+	case "SS":
+		finalFileName = fmt.Sprintf("%02d%02d%02d_SS.mp4", request.TargetDate.Year()%100, request.TargetDate.Month(), request.TargetDate.Day())
 	case "S":
 		finalFileName = fmt.Sprintf("%02d%02d%02d_sentence.mp4", request.TargetDate.Year()%100, request.TargetDate.Month(), request.TargetDate.Day())
 	default:

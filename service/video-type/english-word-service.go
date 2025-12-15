@@ -42,6 +42,7 @@ func (s *EnglishWordService) CreateWordsReels(ctx context.Context, targetDate ti
 	templateConfig := dto.TemplateConfig{
 		BaseTemplate:  "template/word.png",
 		CountTemplate: "template/wordCount",
+		TextColor:     "white", // W 타입은 흰색 글씨
 	}
 
 	// 릴스 제작 서비스 사용

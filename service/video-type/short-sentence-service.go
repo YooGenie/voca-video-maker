@@ -42,6 +42,7 @@ func (s *ShortSentenceService) CreateShortSentenceReels(ctx context.Context, tar
 	templateConfig := dto.TemplateConfig{
 		BaseTemplate:  "template/short_sentence.png",
 		CountTemplate: "template/shortSentenceCount.png",
+		TextColor:     "black", // SS 타입은 검정색 글씨
 	}
 
 	// 3. 릴스 제작 서비스 호출
@@ -56,7 +57,7 @@ func (s *ShortSentenceService) CreateShortSentenceReels(ctx context.Context, tar
 	fmt.Println("\n📚 생성된 영어 단문 목록:")
 	fmt.Println("=" + fmt.Sprintf("%*s", 40, "") + "=")
 	for i := 0; i < len(engSentences); i++ {
-		fmt.Printf("%d) %s\n   - %s\n", i+1, engSentences[i], korSentences[i])
+		fmt.Printf("%d) %s: %s\n", i+1, engSentences[i], korSentences[i])
 	}
 	fmt.Println("=" + fmt.Sprintf("%*s", 40, "") + "=")
 }

@@ -42,6 +42,7 @@ func (s *EnglishIdiomService) CreateIdiomsReels(ctx context.Context, targetDate 
 	templateConfig := dto.TemplateConfig{
 		BaseTemplate:  "template/idiom.png",
 		CountTemplate: "template/idiomCount",
+		TextColor:     "white", // I 타입은 흰색 글씨
 	}
 
 	// 릴스 제작 서비스 사용
