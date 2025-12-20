@@ -503,7 +503,7 @@ func (s *ImageService) SetWordCountOnImage(
 
 	// 폰트 옵션 설정 (wordCount용으로 크기 조정)
 	face, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
-		Size:    100, // wordCount용 폰트 크기 (80에서 100으로 증가)
+		Size:    90, // wordCount용 폰트 크기 (80에서 100으로 증가)
 		DPI:     72,
 		Hinting: font.HintingNone,
 	})
