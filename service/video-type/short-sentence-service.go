@@ -54,10 +54,10 @@ func (s *ShortSentenceService) CreateShortSentenceReels(ctx context.Context, tar
 	}
 
 	// 4. 생성된 문장 목록 출력
-	fmt.Println("\n📚 생성된 영어 단문 목록:")
+	fmt.Println("\n📚 ")
 	fmt.Println("=" + fmt.Sprintf("%*s", 40, "") + "=")
 	for i := 0; i < len(engSentences); i++ {
-		fmt.Printf("%d) %s: %s\n", i+1, engSentences[i], korSentences[i])
+		fmt.Printf("%d) %s (%s)\n", i+1, engSentences[i], korSentences[i])
 	}
 	fmt.Println("=" + fmt.Sprintf("%*s", 40, "") + "=")
 }
