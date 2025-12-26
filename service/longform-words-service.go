@@ -1,9 +1,9 @@
-package video_type
+package service
 
 import (
+	"auto-video-service/config"
 	"auto-video-service/entity"
 	"auto-video-service/repository"
-	"auto-video-service/service"
 	"context"
 	"fmt"
 	"log"
@@ -19,27 +19,36 @@ func NewLongformWordService() *LongformWordService {
 	return &LongformWordService{}
 }
 
-func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDate time.Time, serviceType *string) {
+func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDate time.Time, serviceType string) {
 	title, longformWords, err := s.getTitleByDate(ctx, targetDate)
 	if err != nil {
 		log.Fatalf("데이터 조회 실패: %v", err)
 	}
 
 	// 서비스 초기화
-	imageService := service.NewImageService()
-	longformConfig := service.VideoConfig{Width: 1920, Height: 1080}
-	videoService := service.NewVideoService(imageService, longformConfig)
-	audioService := service.NewAudioService()
+	imageService := NewImageService()
+	longformConfig := VideoConfig{Width: 1920, Height: 1080}
+	videoService := NewVideoService(imageService, longformConfig)
+	audioService := NewAudioService()
 
-	// 디렉토리 생성
-	audioDir := "audio"
+	// 디렉토리 생성 (config에서 경로 인용)
+	audioDir := config.Config.Paths.TempAudioDir
 	if err := os.MkdirAll(audioDir, 0755); err != nil {
 		log.Fatalf("audio 디렉토리 생성 실패: %v", err)
 	}
-	videosDir := "videos"
+	videosDir := config.Config.Paths.TempVideosDir
 	if err := os.MkdirAll(videosDir, 0755); err != nil {
 		log.Fatalf("videos 디렉토리 생성 실패: %v", err)
 	}
+
+	// images 디렉토리 생성
+	imagesDir := config.Config.Paths.TempImagesDir
+	if err := os.MkdirAll(imagesDir, 0755); err != nil {
+		log.Fatalf("images 디렉토리 생성 실패: %v", err)
+	}
+
+	// defer로 최종적으로 임시 파일 정리
+	defer s.cleanupFiles()
 
 	// 1. 타이틀 시퀀스 생성 (이미지, 음성, 비디오)
 	titleVideoPath, err := s.createTitleSequence(title.Title, title.SubTitle, imageService, audioService, videoService, audioDir, videosDir)
@@ -66,7 +75,7 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 		pronunciations[i] = lw.PronunciationKr
 	}
 
-	if err := imageService.GenerateBasicImages("template/long.png", words, meanings, pronunciations, "images/output", len(longformWords)*2); err != nil {
+	if err := imageService.GenerateBasicImages(config.Config.Paths.Templates.Long, words, meanings, pronunciations, filepath.Join(imagesDir, "output"), len(longformWords)*2); err != nil {
 		log.Fatalf("이미지 생성 실패: %v", err)
 	}
 	log.Println("✅ 본문 이미지 생성 완료!")
@@ -75,7 +84,7 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 	log.Println("🎤 영어 단어 원어민 음성을 생성합니다...")
 	for i, word := range words {
 		audioPath := fmt.Sprintf("%s/eng_%d.mp3", audioDir, i)
-		if err := audioService.CreateNativeEnglishAudio(word, audioPath); err != nil {
+		if err := audioService.CreateNativeEnglishAudio(word, audioPath, false); err != nil {
 			log.Fatalf("영어 원어민 음성 생성 실패 (%s): %v", word, err)
 		}
 	}
@@ -93,15 +102,15 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 	for i := 0; i < len(longformWords)*2; i++ {
 		var videoFileName string
 		if i%2 == 0 { // 짝수 - 한국어
-			imagePath := fmt.Sprintf("images/output_%02d.png", i+1)
-			koreanAudioPath := fmt.Sprintf("audio/kor_%d.mp3", i/2)
+			imagePath := fmt.Sprintf("%s/output_%02d.png", imagesDir, i+1)
+			koreanAudioPath := fmt.Sprintf("%s/kor_%d.mp3", audioDir, i/2)
 			videoFileName = fmt.Sprintf("video_%d.mp4", i)
 			if err := videoService.CreateVideoWithKorean(imagePath, koreanAudioPath, filepath.Join(videosDir, videoFileName), 1); err != nil {
 				log.Fatalf("한국어 영상 생성 실패 (%d): %v", i, err)
 			}
 		} else { // 홀수 - 영어
-			imagePath := fmt.Sprintf("images/output_%02d.png", i+1)
-			englishAudioPath := fmt.Sprintf("audio/eng_%d.mp3", i/2)
+			imagePath := fmt.Sprintf("%s/output_%02d.png", imagesDir, i+1)
+			englishAudioPath := fmt.Sprintf("%s/eng_%d.mp3", audioDir, i/2)
 			videoFileName = fmt.Sprintf("video_%d.mp4", i)
 			if err := videoService.CreateVideoWithEnglish(imagePath, englishAudioPath, filepath.Join(videosDir, videoFileName), 2); err != nil {
 				log.Fatalf("영어 영상 생성 실패 (%d): %v", i, err)
@@ -113,69 +122,42 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 	log.Println("✅ 개별 영상 생성 완료!")
 
 	// 5. 최종 영상 합치기
-	finalFileName := fmt.Sprintf("%02d%02d%02d_longform.mp4", targetDate.Year()%100, targetDate.Month(), targetDate.Day())
+	finalVideoDir := config.Config.Paths.FinalVideoDir
+	if err := os.MkdirAll(finalVideoDir, 0755); err != nil {
+		log.Fatalf("final-video 디렉토리 생성 실패: %v", err)
+	}
+	finalFileName := fmt.Sprintf("%s/%02d%02d%02d_longform.mp4", finalVideoDir, targetDate.Year()%100, targetDate.Month(), targetDate.Day())
 	if err = videoService.ConcatenateVideos(videoPaths, finalFileName); err != nil {
 		log.Fatalf("영상 합치기 실패: %v", err)
 	}
 	log.Println("✅ 최종 영상 생성 완료!")
 
-	// 6. 중간 파일 정리
-	log.Println("🗑️ 중간 파일들 정리 중...")
-	if err := s.cleanupFiles(videoPaths, len(longformWords)); err != nil {
-		log.Printf("중간 파일 정리에 실패했습니다: %v", err)
-	}
+	// 6. 중간 파일 정리 (defer에서 처리하지만 명시적으로 로그 남김)
 	log.Println("✅ 중간 파일 정리 완료!")
 }
 
-func (s *LongformWordService) cleanupFiles(videoPaths []string, wordCount int) error {
-	// 1. 중간 비디오 파일 삭제 (타이틀 영상 포함)
-	for _, path := range videoPaths {
-		if err := os.Remove(path); err != nil {
-			log.Printf("중간 비디오 파일 삭제 실패 (%s): %v", path, err)
-		}
+func (s *LongformWordService) cleanupFiles() {
+	log.Println("🧹 임시 파일 및 디렉토리 정리 중...")
+	if err := os.RemoveAll(config.Config.Paths.TempDir); err != nil {
+		log.Printf("임시 디렉토리 삭제 실패: %v", err)
 	}
-
-	// 2. 생성된 본문 이미지 삭제
-	for i := 0; i < wordCount*2; i++ {
-		imagePath := fmt.Sprintf("images/output_%02d.png", i+1)
-		if err := os.Remove(imagePath); err != nil {
-			log.Printf("이미지 파일 삭제 실패 (%s): %v", imagePath, err)
-		}
-	}
-
-	// 3. 생성된 타이틀 이미지 삭제
-	if err := os.Remove("template/titleImage.png"); err != nil {
-		log.Printf("타이틀 이미지 파일 삭제 실패: %v", err)
-	}
-
-	// 4. 생성된 본문 오디오 파일 삭제
-	for i := 0; i < wordCount; i++ {
-		engAudioPath := fmt.Sprintf("audio/eng_%d.mp3", i)
-		if err := os.Remove(engAudioPath); err != nil {
-			log.Printf("영어 오디오 파일 삭제 실패 (%s): %v", engAudioPath, err)
-		}
-		korAudioPath := fmt.Sprintf("audio/kor_%d.mp3", i)
-		if err := os.Remove(korAudioPath); err != nil {
-			log.Printf("한국어 오디오 파일 삭제 실패 (%s): %v", korAudioPath, err)
-		}
-	}
-
-	return nil
 }
 
 // createTitleSequence는 타이틀 이미지, 오디오, 비디오를 모두 생성합니다.
 func (s *LongformWordService) createTitleSequence(
 	title, subTitle string,
-	imageService *service.ImageService,
-	audioService *service.AudioService,
-	videoService *service.VideoService,
+	imageService *ImageService,
+	audioService *AudioService,
+	videoService *VideoService,
 	audioDir, videosDir string,
 ) (string, error) {
+
 	log.Println("🎬 타이틀 시퀀스를 생성합니다...")
 
 	// 1. 타이틀 이미지 생성
-	titleImagePath := "template/titleImage.png"
-	if err := imageService.SetTitleOnImage(title, subTitle, "template/title.png", titleImagePath); err != nil {
+	tempDir := config.Config.Paths.TempDir
+	titleImagePath := filepath.Join(tempDir, "images", "titleImage.png")
+	if err := imageService.SetTitleOnImage(title, subTitle, config.Config.Paths.Templates.Title, titleImagePath); err != nil {
 		return "", fmt.Errorf("타이틀 이미지 생성 실패: %w", err)
 	}
 	log.Println("✅ 타이틀 이미지 생성 완료")

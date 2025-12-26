@@ -1,7 +1,6 @@
-package video_type
+package service
 
 import (
-	"auto-video-service/service"
 	"context"
 	"fmt"
 	"log"
@@ -17,24 +16,24 @@ func NewStartService() *StartService {
 	return &StartService{}
 }
 
-func (s *StartService) CreateStartCommentVideo(ctx context.Context, targetDate time.Time, serviceType *string) {
+func (s *StartService) CreateStartCommentVideo(ctx context.Context, targetDate time.Time, serviceType string) {
 	log.Println("🎬 스타트 멘트와 good 비디오를 생성합니다...")
 
 	// 서비스 초기화
-	imageService := service.NewImageService()
-	videoConfig := service.VideoConfig{Width: 1920, Height: 1080}
-	videoService := service.NewVideoService(imageService, videoConfig)
+	imageService := NewImageService()
+	videoConfig := VideoConfig{Width: 1920, Height: 1080}
+	videoService := NewVideoService(imageService, videoConfig)
 
 	// 출력 경로 설정
 	outputPath := "template/start_comment.mp4"
-	
+
 	// 디렉토리 확인 및 생성
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 		log.Fatalf("디렉토리 생성 실패: %v", err)
 	}
 
 	// 임시 디렉토리 생성
-	tempDir := "temp"
+	tempDir := "temp/start"
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		log.Fatalf("임시 디렉토리 생성 실패: %v", err)
 	}
@@ -89,4 +88,3 @@ func (s *StartService) CreateStartCommentVideo(ctx context.Context, targetDate t
 
 	log.Printf("✅ 스타트 비디오 생성 완료: %s", outputPath)
 }
-

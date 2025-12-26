@@ -2,6 +2,7 @@ package service
 
 import (
 	"auto-video-service/config"
+	"auto-video-service/enum"
 	"fmt"
 	"image"
 	"image/color"
@@ -31,7 +32,7 @@ func (s *ImageService) GenerateBasicImages(
 	outputPrefix string,
 	count int,
 ) error {
-	return s.GenerateBasicImagesWithFontSize(imagePath, eng, []string{}, kor, []string{}, pronounce, outputPrefix, count, 120, "white")
+	return s.GenerateBasicImagesWithFontSize(imagePath, eng, []string{}, kor, []string{}, pronounce, outputPrefix, count, 120, enum.TextColorWhite)
 }
 
 // GenerateBasicImagesWithFontSize 단어 학습용 이미지들을 폰트 크기를 지정하여 생성합니다
@@ -45,7 +46,7 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 	outputPrefix string,
 	count int,
 	fontSize float64, // This will be treated as the maximum font size
-	textColorStr string, // 텍스트 색상 ("white" 또는 "black")
+	textColorEnum enum.TextColor, // 텍스트 색상 (white 또는 black)
 ) error {
 	// 1. 이미지 불러오기
 	existingImageFile, err := os.Open(imagePath)
@@ -82,7 +83,7 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 
 	// 4. 텍스트 색상 결정
 	var textColor color.RGBA
-	if textColorStr == "black" {
+	if textColorEnum == enum.TextColorBlack {
 		textColor = color.RGBA{R: 0, G: 0, B: 0, A: 255} // 검정색
 	} else {
 		textColor = color.RGBA{R: 255, G: 255, B: 255, A: 255} // 흰색 (기본값)
@@ -475,7 +476,7 @@ func (s *ImageService) SetWordCountOnImage(
 	imagePath string,
 	wordCountText string,
 	outputPrefix string,
-	serviceType string,
+	contentType enum.ContentType,
 ) error {
 	// 1. 이미지 불러오기
 	existingImageFile, err := os.Open(imagePath)
@@ -521,10 +522,10 @@ func (s *ImageService) SetWordCountOnImage(
 	var textColor color.RGBA
 
 	// 서비스 타입에 따라 글자색 설정
-	switch serviceType {
-	case "W":
+	switch contentType {
+	case enum.ContentWord:
 		textColor = color.RGBA{R: 173, G: 216, B: 230, A: 255} // #ADD8E6 (연한 파란색)
-	case "I":
+	case enum.ContentIdiom:
 		textColor = color.RGBA{R: 248, G: 202, B: 204, A: 255} // #F8CACC (연한 분홍색)
 	default:
 		textColor = color.RGBA{R: 173, G: 216, B: 230, A: 255} // 기본값: #ADD8E6
@@ -539,7 +540,7 @@ func (s *ImageService) SetWordCountOnImage(
 
 	// 이미지 우측 상단에 배치
 	pointX := imgWidth - textWidth - 720
-	pointY := textHeight + 485
+	pointY := textHeight + 405
 
 	point := fixed.Point26_6{
 		X: fixed.Int26_6(pointX * 64),
