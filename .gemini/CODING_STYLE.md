@@ -15,23 +15,22 @@
 - 파일을 저장할 때마다 IDE에서 자동으로 `gofmt`가 실행되도록 설정하는 것을 강력히 권장합니다.
 - 또는, 커밋하기 전에 `gofmt -w .` 명령을 실행하여 프로젝트 전체를 포매팅합니다.
 
-## 3. 이름 지정 규칙 (Naming Conventions)
+## 3. 명명 규칙 (Naming Convention)
 
-- **패키지 (Packages)**:
-    - 소문자 단일 단어로 작성합니다.
-    - `under_scores`나 `camelCase`를 사용하지 않습니다.
-    - 예: `service`, `repository`, `dto`
-- **변수 (Variables)**:
-    - `camelCase`를 사용합니다. (예: `videoRequest`)
-    - Export되는 변수(전역 변수 등)는 `PascalCase`를 사용하지만, 전역 변수 사용은 최소화해야 합니다.
-- **함수 및 메서드 (Functions and Methods)**:
-    - Export되는 함수/메서드는 `PascalCase`로 시작합니다. (예: `GenerateVideo`)
-    - Export되지 않는 내부 함수/메서드는 `camelCase`로 시작합니다. (예: `createClip`)
-- **인터페이스 (Interfaces)**:
-    - 하나의 메서드만 가지는 인터페이스는 메서드 이름에 `-er` 접미사를 붙이는 관례를 따릅니다. (예: `Reader`, `Writer`)
-    - 여러 메서드를 가지는 경우, 기능에 맞게 명사로 이름을 짓습니다. (예: `VideoService`)
-- **구조체 (Structs)**:
-    - `PascalCase`를 사용하여 이름을 짓습니다. (예: `VideoCreationRequest`)
+프로젝트의 모든 이름은 다음 규칙을 따릅니다.
+
+### 3.1. 디렉토리 및 파일명 (Directories and Filenames)
+
+- **디렉토리 (패키지명)**: 소문자, 단어는 하이픈(`-`)으로 구분하는 `kebab-case`를 사용합니다. Go 패키지 선언 시에는 하이픈을 제외하고 붙여 씁니다. (예: 디렉토리 `short-sentence` -> `package shortsentence`)
+- **Go 파일**: 디렉토리와 동일하게 `kebab-case`를 사용합니다.
+  - 예시: `video-creation-service.go`
+
+### 3.2. Go 코드
+
+- **변수명/함수명**: `camelCase` (예: `generateVideo`)
+- **Export되는 함수/메서드/구조체/인터페이스**: `PascalCase` (예: `GenerateVideo`, `VideoRequest`)
+- **상수**: `PascalCase` 또는 `UPPER_SNAKE_CASE` (예: `DefaultTimeout`, `MAX_RETRIES`)
+- **인터페이스**: 하나의 메서드만 가질 경우 `-er` 접미사를 사용합니다. (예: `Reader`)
 
 ## 4. 주석 (Comments)
 
@@ -67,3 +66,15 @@
 
 - `golangci-lint run` 명령을 통해 잠재적인 버그, 스타일 문제, 성능 이슈 등을 사전에 발견할 수 있습니다.
 - 프로젝트 루트에 `.golangci.yml` 설정 파일을 추가하여 규칙을 관리할 수 있습니다.
+
+## 8. 데이터베이스 스키마 관리 (DDL)
+
+테이블 구조 변경 시 반드시 DDL 파일에 기록해야 합니다.
+
+- **DDL 파일 경로**: `/Users/sunny/go/src/auto-video-service/DDL.sql`
+- **기록 내용**: 테이블 생성, 컬럼 추가/수정/삭제, 인덱스 변경 등 모든 스키마 변경사항
+- **형식**: 날짜 주석과 함께 변경 사항을 기록
+  ```sql
+  -- [YYYY-MM-DD] 변경 설명
+  ALTER TABLE table_name ADD COLUMN column_name VARCHAR(20);
+  ```
