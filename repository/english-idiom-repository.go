@@ -26,7 +26,7 @@ type englishIdiomRepository struct {
 }
 
 func (englishIdiomRepository) FindById(ctx context.Context, id int64) (entity.EnglishIdiom, error) {
-	db := config.ConfigureDatabase()
+	db := config.GetDatabase()
 	var englishIdiom entity.EnglishIdiom
 	q := db.Table("english_idioms").Where("id=?", id)
 
@@ -44,7 +44,7 @@ func (englishIdiomRepository) FindById(ctx context.Context, id int64) (entity.En
 }
 
 func (englishIdiomRepository) FindByToday(ctx context.Context) ([]entity.EnglishIdiom, error) {
-	db := config.ConfigureDatabase()
+	db := config.GetDatabase()
 	var englishIdioms []entity.EnglishIdiom
 	today := time.Now().Format("20060102")
 
@@ -57,7 +57,7 @@ func (englishIdiomRepository) FindByToday(ctx context.Context) ([]entity.English
 }
 
 func (englishIdiomRepository) FindByDate(ctx context.Context, dateStr string) ([]entity.EnglishIdiom, error) {
-	db := config.ConfigureDatabase()
+	db := config.GetDatabase()
 	var englishIdioms []entity.EnglishIdiom
 
 	err := db.Table("english_idioms").Where("created_date = ?", dateStr).Find(&englishIdioms)
