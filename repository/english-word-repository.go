@@ -26,7 +26,7 @@ type englishWordRepository struct {
 }
 
 func (englishWordRepository) FindById(ctx context.Context, id int64) (entity.EnglishWord, error) {
-	db := config.ConfigureDatabase()
+	db := config.GetDatabase()
 	var englishWord entity.EnglishWord
 	q := db.Table("english_words").Where("id=?", id)
 
@@ -44,7 +44,7 @@ func (englishWordRepository) FindById(ctx context.Context, id int64) (entity.Eng
 }
 
 func (englishWordRepository) FindByToday(ctx context.Context) ([]entity.EnglishWord, error) {
-	db := config.ConfigureDatabase()
+	db := config.GetDatabase()
 	var englishWords []entity.EnglishWord
 	today := time.Now().Format("20060102")
 
@@ -57,7 +57,7 @@ func (englishWordRepository) FindByToday(ctx context.Context) ([]entity.EnglishW
 }
 
 func (englishWordRepository) FindByDate(ctx context.Context, dateStr string) ([]entity.EnglishWord, error) {
-	db := config.ConfigureDatabase()
+	db := config.GetDatabase()
 	var englishWords []entity.EnglishWord
 
 	err := db.Table("english_words").Where("created_date = ?", dateStr).Find(&englishWords)
