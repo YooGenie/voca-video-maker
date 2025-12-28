@@ -124,12 +124,12 @@ func (s *VideoService) CreateStartCommentVideo(
 	return cmd.Run()
 }
 
-// CreateGoodVideo good.png 이미지로 무음 2초 비디오를 생성합니다
+// CreateGoodVideo good.png 이미지로 무음 3초 비디오를 생성합니다
 func (s *VideoService) CreateGoodVideo(
 	outputPath string,
 ) error {
 	imagePath := config.Config.GoodImagePath
-	duration := 2.0 // 2초
+	duration := 3.0 // 3초
 
 	cmd := exec.Command("ffmpeg",
 		"-loop", "1",
@@ -223,11 +223,41 @@ func (s *VideoService) CreateVideoWithEnglish(
 	outputPath string,
 	silentTime float64, // 끝에 추가할 무음 시간
 ) error {
-	// 영어 오디오 끝에 무음 추가 (싱크 맞춤)
+	return s.CreateVideoWithEnglishRepeat(imagePath, englishAudioPath, outputPath, silentTime, 1)
+}
+
+// CreateVideoWithEnglishRepeat 영어 영상을 생성합니다 (영어 음성 N회 반복 + 끝에 무음)
+func (s *VideoService) CreateVideoWithEnglishRepeat(
+	imagePath string,
+	englishAudioPath string,
+	outputPath string,
+	silentTime float64, // 끝에 추가할 무음 시간
+	repeatCount int, // 영어 반복 횟수
+) error {
+	// 반복 횟수가 1 이하면 기본 동작
+	if repeatCount < 1 {
+		repeatCount = 1
+	}
+
+	// 영어 오디오 반복 + 끝에 무음 추가
 	tempEnglishPath := englishAudioPath[:len(englishAudioPath)-4] + "_temp.mp3"
+	defer os.Remove(tempEnglishPath) // 함수 종료 시 임시 파일 자동 삭제
+
+	// 반복을 위한 필터 구성
+	// 반복 사이에 2초 무음 추가
+	var filterComplex string
+	gapDuration := 2.0 // 영어 사이 무음 시간 (초)
+	if repeatCount > 1 {
+		// 오디오 뒤에 무음 추가 후 반복, 마지막에 추가 무음
+		filterComplex = fmt.Sprintf("apad=pad_dur=%.1f,aloop=loop=%d:size=2e+09,apad=pad_dur=%.1f", gapDuration, repeatCount-1, silentTime)
+	} else {
+		// 반복 없이 무음만 추가
+		filterComplex = fmt.Sprintf("apad=pad_dur=%.1f", silentTime)
+	}
+
 	englishCmd := exec.Command("ffmpeg",
 		"-i", englishAudioPath,
-		"-af", fmt.Sprintf("apad=pad_dur=%.1f", silentTime),
+		"-af", filterComplex,
 		"-avoid_negative_ts", "make_zero",
 		"-fflags", "+genpts",
 		"-y",
@@ -269,9 +299,6 @@ func (s *VideoService) CreateVideoWithEnglish(
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("비디오 생성 실패: %v", err)
 	}
-
-	// 임시 파일 삭제
-	os.Remove(tempEnglishPath)
 
 	return nil
 }

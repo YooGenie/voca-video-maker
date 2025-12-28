@@ -57,10 +57,13 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 	}
 	videoPaths := []string{titleVideoPath}
 
-	// 1-1. 스타트 코멘트 비디오 연결 (이미 생성된 template/start_comment.mp4 사용)
+	// 1-1. 스타트 코멘트 비디오 연결 (없으면 자동 생성)
 	startCommentVideoPath := "template/start_comment.mp4"
 	if _, err := os.Stat(startCommentVideoPath); os.IsNotExist(err) {
-		log.Fatalf("스타트 코멘트 비디오를 찾을 수 없습니다: %s", startCommentVideoPath)
+		log.Println("스타트 코멘트 비디오가 없습니다. 자동 생성합니다...")
+		startService := NewStartService()
+		startService.CreateStartCommentVideo(ctx, targetDate, serviceType)
+		log.Println("✅ 스타트 코멘트 비디오 생성 완료!")
 	}
 	videoPaths = append(videoPaths, startCommentVideoPath)
 	log.Println("✅ 스타트 코멘트 비디오 연결 완료!")
@@ -99,6 +102,7 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 	log.Println("✅ 본문 음성 파일 생성 완료!")
 
 	// 4. 본문 비디오 생성
+	// 한국어: 1초 무음, 영어: 2초 무음 (반복 사이에도 2초 무음)
 	for i := 0; i < len(longformWords)*2; i++ {
 		var videoFileName string
 		if i%2 == 0 { // 짝수 - 한국어
@@ -112,7 +116,8 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 			imagePath := fmt.Sprintf("%s/output_%02d.png", imagesDir, i+1)
 			englishAudioPath := fmt.Sprintf("%s/eng_%d.mp3", audioDir, i/2)
 			videoFileName = fmt.Sprintf("video_%d.mp4", i)
-			if err := videoService.CreateVideoWithEnglish(imagePath, englishAudioPath, filepath.Join(videosDir, videoFileName), 2); err != nil {
+			// 영어 2회 반복, 반복 사이 2초 무음, 끝에 1초 무음
+			if err := videoService.CreateVideoWithEnglishRepeat(imagePath, englishAudioPath, filepath.Join(videosDir, videoFileName), 1, 2); err != nil {
 				log.Fatalf("영어 영상 생성 실패 (%d): %v", i, err)
 			}
 		}
