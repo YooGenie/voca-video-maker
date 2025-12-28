@@ -28,7 +28,7 @@ go.work.sum
 .env
 
 # config files with sensitive data
-config/config.json
+/config/config.json
 
 # Editor/IDE
 # .idea/
@@ -38,6 +38,7 @@ config/config.json
 .DS_Store
 
 /template/
+/temp/
 /images/
 /audio/
 /videos/

@@ -25,10 +25,29 @@ var Config = struct {
 	Service struct {
 		Name string
 	}
-	FontPath      string
+	FontPath       string
 	StartImagePath string
 	StartAudioPath string
-	GoodImagePath string
+	GoodImagePath  string
+	Paths          struct {
+		TempDir       string
+		TempImagesDir string
+		TempAudioDir  string
+		TempVideosDir string
+		FinalVideoDir string
+		TemplateDir   string
+		Templates     struct {
+			Word          string
+			WordCount     string
+			Idiom         string
+			IdiomCount    string
+			Sentence      string
+			SentenceCount string
+			Long          string
+			Title         string
+			StartComment  string
+		}
+	}
 }{}
 
 // CliConfig holds the configuration for the CLI application, read from config.yaml
@@ -67,7 +86,6 @@ func LoadCliConfig(path string) (*CliConfig, error) {
 	return &cfg, nil
 }
 
-
 func InitConfig(cfg string) {
 	configor.Load(&Config, cfg)
 }
@@ -77,7 +95,7 @@ func ConfigureEnvironment(path string, env ...string) {
 	configor.Load(&Config, path+"config/config.json") //배포 환경에 따른 설정 파일(json)을 로딩한다.
 	properties := make(map[string]string)
 
-	for _, key := range env { 
+	for _, key := range env {
 		arg := os.Getenv(key)
 		if len(arg) == 0 {
 			panic(fmt.Errorf("No %s system env variable\n", key))

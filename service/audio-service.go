@@ -61,7 +61,12 @@ func (s *AudioService) CreateKoreanAudioWithRate(
 }
 
 // CreateNativeEnglishAudio 원어민 수준의 영어 음성을 생성합니다
-func (s *AudioService) CreateNativeEnglishAudio(text, outputPath string) error {
+func (s *AudioService) CreateNativeEnglishAudio(text, outputPath string, isSlow bool) error {
+	// slow 옵션 문자열 변환 (Python boolean)
+	slowStr := "False"
+	if isSlow {
+		slowStr = "True"
+	}
 	// Python 스크립트로 고품질 영어 음성 생성
 	scriptContent := fmt.Sprintf(`#!/usr/bin/env python3
 from gtts import gTTS
@@ -70,7 +75,7 @@ import os
 def generate_native_english_audio(text, output_path):
     try:
         # 고품질 영어 음성 설정
-        tts = gTTS(text=text, lang='en', tld='us', slow=True, lang_check=True)
+        tts = gTTS(text=text, lang='en', tld='us', slow=%s, lang_check=True)
         tts.save(output_path)
         print(f"✅ 원어민 영어 음성 생성 완료: {output_path}")
         return True
@@ -83,7 +88,7 @@ text = "%s"
 output_file = "%s"
 
 generate_native_english_audio(text, output_file)
-`, text, outputPath)
+`, slowStr, text, outputPath)
 
 	// 임시 스크립트 파일 생성
 	scriptFile := "temp_english_audio.py"

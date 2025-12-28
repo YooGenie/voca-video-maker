@@ -24,7 +24,7 @@ func TitleRepository() *titleRepository {
 type titleRepository struct{}
 
 func (r *titleRepository) FindByDate(ctx context.Context, dateStr string) (*entity.Title, error) {
-	db := config.ConfigureDatabase()
+	db := config.GetDatabase()
 	var title entity.Title
 	has, err := db.Table("title").Where("created_date = ?", dateStr).Get(&title)
 	if err != nil {

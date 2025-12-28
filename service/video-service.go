@@ -124,12 +124,12 @@ func (s *VideoService) CreateStartCommentVideo(
 	return cmd.Run()
 }
 
-// CreateGoodVideo good.png 이미지로 무음 2초 비디오를 생성합니다
+// CreateGoodVideo good.png 이미지로 무음 3초 비디오를 생성합니다
 func (s *VideoService) CreateGoodVideo(
 	outputPath string,
 ) error {
 	imagePath := config.Config.GoodImagePath
-	duration := 2.0 // 2초
+	duration := 3.0 // 3초
 
 	cmd := exec.Command("ffmpeg",
 		"-loop", "1",
@@ -216,20 +216,48 @@ func (s *VideoService) CreateVideoWithKorean(
 	return nil
 }
 
-// CreateVideoWithEnglish 영어 영상을 생성합니다 (0.5초 무음 + 영어 음성 + 0.3초 + 영어 음성)
+// CreateVideoWithEnglish 영어 영상을 생성합니다 (영어 음성 1회 + 끝에 무음)
 func (s *VideoService) CreateVideoWithEnglish(
 	imagePath string,
 	englishAudioPath string,
 	outputPath string,
-	silentTime float64, // 무음 시간
+	silentTime float64, // 끝에 추가할 무음 시간
 ) error {
-	// 영어 오디오를 2번 반복하고 사이에 무음 추가
+	return s.CreateVideoWithEnglishRepeat(imagePath, englishAudioPath, outputPath, silentTime, 1)
+}
+
+// CreateVideoWithEnglishRepeat 영어 영상을 생성합니다 (영어 음성 N회 반복 + 끝에 무음)
+func (s *VideoService) CreateVideoWithEnglishRepeat(
+	imagePath string,
+	englishAudioPath string,
+	outputPath string,
+	silentTime float64, // 끝에 추가할 무음 시간
+	repeatCount int, // 영어 반복 횟수
+) error {
+	// 반복 횟수가 1 이하면 기본 동작
+	if repeatCount < 1 {
+		repeatCount = 1
+	}
+
+	// 영어 오디오 반복 + 끝에 무음 추가
 	tempEnglishPath := englishAudioPath[:len(englishAudioPath)-4] + "_temp.mp3"
+	defer os.Remove(tempEnglishPath) // 함수 종료 시 임시 파일 자동 삭제
+
+	// 반복을 위한 필터 구성
+	// 반복 사이에 2초 무음 추가
+	var filterComplex string
+	gapDuration := 2.0 // 영어 사이 무음 시간 (초)
+	if repeatCount > 1 {
+		// 오디오 뒤에 무음 추가 후 반복, 마지막에 추가 무음
+		filterComplex = fmt.Sprintf("apad=pad_dur=%.1f,aloop=loop=%d:size=2e+09,apad=pad_dur=%.1f", gapDuration, repeatCount-1, silentTime)
+	} else {
+		// 반복 없이 무음만 추가
+		filterComplex = fmt.Sprintf("apad=pad_dur=%.1f", silentTime)
+	}
+
 	englishCmd := exec.Command("ffmpeg",
 		"-i", englishAudioPath,
-		"-i", englishAudioPath,
-		"-filter_complex", fmt.Sprintf("[0:a]apad=pad_dur=%.1f[a1];[a1][1:a]concat=n=2:v=0:a=1[a]", silentTime),
-		"-map", "[a]",
+		"-af", filterComplex,
 		"-avoid_negative_ts", "make_zero",
 		"-fflags", "+genpts",
 		"-y",
@@ -243,28 +271,11 @@ func (s *VideoService) CreateVideoWithEnglish(
 		return fmt.Errorf("영어 오디오 처리 실패: %v", err)
 	}
 
-	// 무음을 앞에 추가
-	finalAudioPath := outputPath[:len(outputPath)-4] + "_final.mp3"
-	finalCmd := exec.Command("ffmpeg",
-		"-i", tempEnglishPath,
-		"-af", fmt.Sprintf("apad=pad_dur=%.1f", silentTime),
-		"-y",
-		finalAudioPath,
-	)
-
-	finalCmd.Stdout = os.Stdout
-	finalCmd.Stderr = os.Stderr
-
-	if err := finalCmd.Run(); err != nil {
-		return fmt.Errorf("최종 오디오 처리 실패: %v", err)
-	}
-
-	//
 	// 비디오 생성 (모바일 호환성 최적화)
 	cmd := exec.Command("ffmpeg",
 		"-loop", "1",
 		"-i", imagePath,
-		"-i", finalAudioPath,
+		"-i", tempEnglishPath,
 		"-c:v", "libx264",
 		"-preset", "fast",
 		"-profile:v", "baseline",
@@ -289,10 +300,6 @@ func (s *VideoService) CreateVideoWithEnglish(
 		return fmt.Errorf("비디오 생성 실패: %v", err)
 	}
 
-	// 임시 파일들 삭제
-	os.Remove(tempEnglishPath)
-	os.Remove(finalAudioPath)
-
 	return nil
 }
 
@@ -302,7 +309,7 @@ func (s *VideoService) ConcatenateVideos(
 	outputPath string,
 ) error {
 	// videos 디렉토리에서 영상 파일들 찾기
-	videosDir := "videos"
+	videosDir := "temp/videos"
 
 	// 파일 목록 생성
 	fileListPath := filepath.Join(videosDir, "filelist.txt")
@@ -311,6 +318,7 @@ func (s *VideoService) ConcatenateVideos(
 		return fmt.Errorf("파일 목록 생성 실패: %v", err)
 	}
 	defer file.Close()
+	defer os.Remove(fileListPath) // 파일 목록 파일 삭제
 
 	// start_comment.mp4 자동 추가 제거: 전달받은 videoPaths만 사용
 	for _, videoPath := range videoPaths {
@@ -334,6 +342,24 @@ func (s *VideoService) ConcatenateVideos(
 		"-i", fileListPath,
 		"-c", "copy",
 		"-y", // 기존 파일 덮어쓰기
+		outputPath,
+	)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+// CreateSilenceVideo 지정된 길이의 무음/검은 화면 비디오를 생성합니다
+func (s *VideoService) CreateSilenceVideo(outputPath string, duration float64) error {
+	cmd := exec.Command("ffmpeg",
+		"-f", "lavfi",
+		"-i", fmt.Sprintf("color=c=black:s=%dx%d:d=%f", s.config.Width, s.config.Height, duration), // 설정된 해상도 사용
+		"-c:v", "libx264",
+		"-t", fmt.Sprintf("%f", duration),
+		"-pix_fmt", "yuv420p",
+		"-y",
 		outputPath,
 	)
 

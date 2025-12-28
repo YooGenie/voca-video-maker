@@ -25,7 +25,7 @@ type shortSentenceRepository struct{}
 
 // FindByDate retrieves short sentences for a specific date from the database.
 func (r *shortSentenceRepository) FindByDate(ctx context.Context, dateStr string) ([]entity.ShortSentence, error) {
-	db := config.ConfigureDatabase()
+	db := config.GetDatabase()
 	var sentences []entity.ShortSentence
 
 	err := db.Table("short_sentences").Where("created_date = ?", dateStr).Find(&sentences)
