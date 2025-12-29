@@ -6,9 +6,10 @@ type LongformWord struct {
 	Meaning         string `xorm:"meaning notnull"`
 	PronunciationKr string `xorm:"pronunciation_kr"`
 	PhoneticSymbol  string `xorm:"phonetic_symbol"`
+	Source          string `xorm:"source notnull"`
 	CreatedDate     string `xorm:"created_date notnull"`
-	ShortsDate      string `xorm:"shorts_date"`  // 유튜브 숏폼 생성 기준일
-	ContentType     string `xorm:"content_type"` // 콘텐츠 종류: word, idiom, sentence
+	ShortsDate      string `xorm:"shorts_date"`
+	ContentType     string `xorm:"content_type"`
 }
 
 func (LongformWord) TableName() string {
