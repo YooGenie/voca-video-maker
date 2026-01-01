@@ -50,45 +50,18 @@ func (s *ReelsCreationService) CreateCompleteReelsWithFontSize(ctx context.Conte
 	// 1. 조회된 컨텐츠 개수만큼 이미지 생성
 	contentCount := contentData.Count
 
-	var newTemplateImagePath string
-	var err error
-
-	// SS(문장) 및 W(단어) 타입은 카운트를 표시하지 않으므로 카운트 이미지 생성을 건너뜀
-	// Legacy types support: iw(InstagramWord), ysw(YoutubeShortsWord), fw(FacebookWord)
-	if request.ServiceType == "SS" || request.ServiceType == "W" ||
-		request.ServiceType == "iw" || request.ServiceType == "ysw" || request.ServiceType == "fw" {
-		log.Printf("%s 타입은 카운트를 표시하지 않으므로 기본 템플릿을 사용합니다.", request.ServiceType)
-		newTemplateImagePath = templateConfig.BaseTemplate
-	} else {
-		// 먼저 컨텐츠 개수를 표시하는 이미지 생성
-		err = imageService.SetWordCountOnImage(
-			templateConfig.BaseTemplate,     // 기본 이미지 템플릿
-			fmt.Sprintf("%d", contentCount), // contentCount를 문자열로 변환
-			templateConfig.CountTemplate,    // 출력 파일명
-			request.ContentType,             // 콘텐츠 타입 (Word 또는 Idiom)
-		)
-		if err != nil {
-			log.Printf("contentCount 이미지 생성 실패: %v", err)
-			response.Error = err
-			return response
-		} else {
-			log.Println("contentCount 이미지 생성 완료!")
-		}
-		newTemplateImagePath = templateConfig.CountTemplate + ".png"
-	}
-
-	// 그 다음 기본 이미지들 생성
-	err = imageService.GenerateBasicImagesWithFontSize(
-		newTemplateImagePath,               // 콘텐츠 개수가 표시된 이미지 템플릿
-		contentData.Primary,                // 영어 단어들 또는 숙어들
-		contentData.PrimaryLine2,           // 영어 두 번째 줄 (SS 타입 전용)
-		contentData.Secondary,              // 한국어 번역들 또는 의미들
-		contentData.SecondaryLine2,         // 한국어 두 번째 줄 (SS 타입 전용)
-		contentData.Tertiary,               // 발음들 또는 예문들
+	// 기본 이미지들 생성 (카운트 이미지 생성 로직 제거됨)
+	err := imageService.GenerateBasicImagesWithFontSize(
+		templateConfig.BaseTemplate,       // 기본 이미지 템플릿
+		contentData.Primary,               // 영어 단어들 또는 숙어들
+		contentData.PrimaryLine2,          // 영어 두 번째 줄 (SS 타입 전용)
+		contentData.Secondary,             // 한국어 번역들 또는 의미들
+		contentData.SecondaryLine2,        // 한국어 두 번째 줄 (SS 타입 전용)
+		contentData.Tertiary,              // 발음들 또는 예문들
 		filepath.Join(imagesDir, "output"), // 출력 파일 접두사
-		contentCount*2,                     // 생성할 이미지 개수 (동적)
-		fontSize,                           // 폰트 크기
-		templateConfig.TextColor,           // 텍스트 색상
+		contentCount*2,                    // 생성할 이미지 개수 (동적)
+		fontSize,                          // 폰트 크기
+		templateConfig.TextColor,          // 텍스트 색상
 	)
 	if err != nil {
 		log.Printf("이미지 생성 실패: %v", err)
