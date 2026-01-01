@@ -53,9 +53,11 @@ func (s *ReelsCreationService) CreateCompleteReelsWithFontSize(ctx context.Conte
 	var newTemplateImagePath string
 	var err error
 
-	// SS 타입은 카운트를 표시하지 않으므로 카운트 이미지 생성을 건너뜀
-	if request.ServiceType == "SS" {
-		log.Println("SS 타입은 카운트를 표시하지 않으므로 기본 템플릿을 사용합니다.")
+	// SS(문장) 및 W(단어) 타입은 카운트를 표시하지 않으므로 카운트 이미지 생성을 건너뜀
+	// Legacy types support: iw(InstagramWord), ysw(YoutubeShortsWord), fw(FacebookWord)
+	if request.ServiceType == "SS" || request.ServiceType == "W" ||
+		request.ServiceType == "iw" || request.ServiceType == "ysw" || request.ServiceType == "fw" {
+		log.Printf("%s 타입은 카운트를 표시하지 않으므로 기본 템플릿을 사용합니다.", request.ServiceType)
 		newTemplateImagePath = templateConfig.BaseTemplate
 	} else {
 		// 먼저 컨텐츠 개수를 표시하는 이미지 생성
