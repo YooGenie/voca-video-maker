@@ -25,9 +25,8 @@ type ContentData struct {
 
 // TemplateConfig - 템플릿 설정 DTO
 type TemplateConfig struct {
-	BaseTemplate  string         // 기본 템플릿 경로 (word.png, idiom.png)
-	CountTemplate string         // 개수 표시 템플릿 경로 (wordCount, idiomCount)
-	TextColor     enum.TextColor // 텍스트 색상 (white 또는 black)
+	BaseTemplate string
+	TextColor    enum.TextColor
 }
 
 // VideoCreationResponse - 비디오 생성 결과 DTO

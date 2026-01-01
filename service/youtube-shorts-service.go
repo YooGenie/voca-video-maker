@@ -83,29 +83,13 @@ func (s *YoutubeShortsService) getContentType(serviceType string) enum.ContentTy
 }
 
 // getTemplateConfig - 콘텐츠 타입별 템플릿 설정
+// 2026년부터 모든 세로형 비디오는 Vertical 템플릿 하나로 통일
 func (s *YoutubeShortsService) getTemplateConfig(contentType enum.ContentType) dto.TemplateConfig {
 	paths := config.Config.Paths.Templates
-	switch contentType {
-	case enum.ContentWord:
-		return dto.TemplateConfig{
-			BaseTemplate:  paths.Word,
-			CountTemplate: paths.WordCount,
-			TextColor:     enum.TextColorWhite,
-		}
-	case enum.ContentIdiom:
-		return dto.TemplateConfig{
-			BaseTemplate:  paths.Idiom,
-			CountTemplate: paths.IdiomCount,
-			TextColor:     enum.TextColorWhite,
-		}
-	case enum.ContentSentence:
-		return dto.TemplateConfig{
-			BaseTemplate:  paths.Sentence,
-			CountTemplate: paths.SentenceCount,
-			TextColor:     enum.TextColorBlack,
-		}
-	default:
-		return dto.TemplateConfig{}
+	// 세로형 비디오는 모두 동일한 템플릿 사용
+	return dto.TemplateConfig{
+		BaseTemplate: paths.Vertical,
+		TextColor:    enum.TextColorBeige,
 	}
 }
 

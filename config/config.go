@@ -37,15 +37,10 @@ var Config = struct {
 		FinalVideoDir string
 		TemplateDir   string
 		Templates     struct {
-			Word          string
-			WordCount     string
-			Idiom         string
-			IdiomCount    string
-			Sentence      string
-			SentenceCount string
-			Long          string
-			Title         string
-			StartComment  string
+			Vertical     string // 세로형 비디오 공통 템플릿 (2026_ver1.png)
+			Long         string
+			Title        string
+			StartComment string
 		}
 	}
 }{}
