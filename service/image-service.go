@@ -32,7 +32,7 @@ func (s *ImageService) GenerateBasicImages(
 	outputPrefix string,
 	count int,
 ) error {
-	return s.GenerateBasicImagesWithFontSize(imagePath, eng, []string{}, kor, []string{}, pronounce, outputPrefix, count, 120, enum.TextColorWhite)
+	return s.GenerateBasicImagesWithFontSize(imagePath, eng, []string{}, kor, []string{}, pronounce, outputPrefix, count, 120, enum.TextColorBeige)
 }
 
 // GenerateBasicImagesWithFontSize 단어 학습용 이미지들을 폰트 크기를 지정하여 생성합니다
@@ -83,9 +83,13 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 
 	// 4. 텍스트 색상 결정
 	var textColor color.RGBA
-	if textColorEnum == enum.TextColorBlack {
+
+	switch textColorEnum {
+	case enum.TextColorBlack:
 		textColor = color.RGBA{R: 0, G: 0, B: 0, A: 255} // 검정색
-	} else {
+	case enum.TextColorBeige:
+		textColor = color.RGBA{R: 245, G: 245, B: 220, A: 255} // 베이지색 (#F5F5DC)
+	default:
 		textColor = color.RGBA{R: 255, G: 255, B: 255, A: 255} // 흰색 (기본값)
 	}
 
@@ -370,7 +374,7 @@ func (s *ImageService) GenerateEKImagesWithFontSize(
 	}
 
 	// 4. 이미지들 생성
-	textColor := color.RGBA{R: 255, G: 255, B: 255, A: 255} // 흰색
+	textColor := color.RGBA{R: 245, G: 245, B: 220, A: 255} // 베이지색 (#F5F5DC)
 	for i := 0; i < count; i++ {
 		// 원본 이미지 복사
 		rgba := image.NewRGBA(img.Bounds())
