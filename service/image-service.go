@@ -225,26 +225,45 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 			secondDrawer.Dot = fixed.Point26_6{X: fixed.I(secondPointX), Y: fixed.I(secondPointY)}
 			secondDrawer.DrawString(secondText)
 
-			// 세 번째 텍스트(발음)가 있으면 아래에 그리기
+			// 세 번째 텍스트(발음)가 있으면 아래에 그리기 - 동적 폰트 크기 조절
 			if thirdText != "" {
-				thirdFace, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
-					Size:    75, // 발음은 작은 폰트
-					DPI:     72,
-					Hinting: font.HintingFull,
-				})
-				if err != nil {
-					secondFace.Close()
-					return fmt.Errorf("세 번째 줄 폰트 페이스 생성 실패: %v", err)
+				var thirdFace font.Face
+				thirdFontSize := 75.0 // 최대 폰트 크기
+
+				for {
+					var faceErr error
+					thirdFace, faceErr = opentype.NewFace(parsedFont, &opentype.FaceOptions{
+						Size:    thirdFontSize,
+						DPI:     72,
+						Hinting: font.HintingFull,
+					})
+					if faceErr != nil {
+						secondFace.Close()
+						return fmt.Errorf("세 번째 줄 폰트 페이스 생성 실패: %v", faceErr)
+					}
+
+					thirdTextBounds, _ := font.BoundString(thirdFace, thirdText)
+					thirdTextWidth := (thirdTextBounds.Max.X - thirdTextBounds.Min.X).Ceil()
+
+					if thirdTextWidth > maxTextWidth {
+						thirdFace.Close()
+						thirdFontSize -= 10
+						if thirdFontSize < 20 {
+							break
+						}
+						continue
+					}
+					break
 				}
+
+				thirdTextBounds, _ := font.BoundString(thirdFace, thirdText)
+				thirdTextWidth := (thirdTextBounds.Max.X - thirdTextBounds.Min.X).Ceil()
 
 				thirdDrawer := &font.Drawer{
 					Dst:  rgba,
 					Src:  image.NewUniform(textColor),
 					Face: thirdFace,
 				}
-
-				thirdTextBounds, _ := font.BoundString(thirdFace, thirdText)
-				thirdTextWidth := (thirdTextBounds.Max.X - thirdTextBounds.Min.X).Ceil()
 
 				thirdPointX := (imgWidth - thirdTextWidth) / 2
 				thirdPointY := secondPointY + secondTextHeight + 20 // 두 번째 텍스트 아래 20픽셀 간격
@@ -257,24 +276,43 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 			secondFace.Close()
 		} else if thirdText != "" {
 			// 두 번째 텍스트가 없고 세 번째 텍스트(발음)만 있는 경우
-			// 발음을 두 번째 줄 위치에 표시
-			thirdFace, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
-				Size:    75, // 발음은 작은 폰트
-				DPI:     72,
-				Hinting: font.HintingFull,
-			})
-			if err != nil {
-				return fmt.Errorf("발음 폰트 페이스 생성 실패: %v", err)
+			// 발음을 두 번째 줄 위치에 표시 - 동적 폰트 크기 조절
+			var thirdFace font.Face
+			thirdFontSize := 75.0 // 최대 폰트 크기
+
+			for {
+				var faceErr error
+				thirdFace, faceErr = opentype.NewFace(parsedFont, &opentype.FaceOptions{
+					Size:    thirdFontSize,
+					DPI:     72,
+					Hinting: font.HintingFull,
+				})
+				if faceErr != nil {
+					return fmt.Errorf("발음 폰트 페이스 생성 실패: %v", faceErr)
+				}
+
+				thirdTextBounds, _ := font.BoundString(thirdFace, thirdText)
+				thirdTextWidth := (thirdTextBounds.Max.X - thirdTextBounds.Min.X).Ceil()
+
+				if thirdTextWidth > maxTextWidth {
+					thirdFace.Close()
+					thirdFontSize -= 10
+					if thirdFontSize < 20 {
+						break
+					}
+					continue
+				}
+				break
 			}
+
+			thirdTextBounds, _ := font.BoundString(thirdFace, thirdText)
+			thirdTextWidth := (thirdTextBounds.Max.X - thirdTextBounds.Min.X).Ceil()
 
 			thirdDrawer := &font.Drawer{
 				Dst:  rgba,
 				Src:  image.NewUniform(textColor),
 				Face: thirdFace,
 			}
-
-			thirdTextBounds, _ := font.BoundString(thirdFace, thirdText)
-			thirdTextWidth := (thirdTextBounds.Max.X - thirdTextBounds.Min.X).Ceil()
 
 			thirdPointX := (imgWidth - thirdTextWidth) / 2
 			thirdPointY := pointY + textHeight + 20 // 첫 번째 텍스트 아래 20픽셀 간격
@@ -420,18 +458,46 @@ func (s *ImageService) GenerateEKImagesWithFontSize(
 		}
 		d.DrawString(text)
 
-		// 두 번째 텍스트가 있으면 아래에 그리기 (작은 폰트 사용)
+		// 두 번째 텍스트(발음)가 있으면 아래에 그리기 - 동적 폰트 크기 조절
 		if secondText != "" {
-			// 작은 폰트로 두 번째 텍스트 그리기
-			smallFace, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
-				Size:    75, // 작은 폰트 크기
-				DPI:     72, // DPI (Dots Per Inch)
-				Hinting: font.HintingNone,
-			})
-			if err != nil {
-				return fmt.Errorf("작은 폰트 페이스 생성 실패: %v", err)
+			var smallFace font.Face
+			smallFontSize := 75.0 // 최대 폰트 크기
+
+			// 비디오 방향에 따라 최대 텍스트 너비 조정
+			var maxTextWidth int
+			if imgWidth > imgHeight {
+				maxTextWidth = int(float64(imgWidth) * 0.8)
+			} else {
+				maxTextWidth = int(float64(imgWidth) * 0.9)
 			}
-			defer smallFace.Close()
+
+			for {
+				var faceErr error
+				smallFace, faceErr = opentype.NewFace(parsedFont, &opentype.FaceOptions{
+					Size:    smallFontSize,
+					DPI:     72,
+					Hinting: font.HintingNone,
+				})
+				if faceErr != nil {
+					return fmt.Errorf("발음 폰트 페이스 생성 실패: %v", faceErr)
+				}
+
+				secondTextBounds, _ := font.BoundString(smallFace, secondText)
+				secondTextWidth := (secondTextBounds.Max.X - secondTextBounds.Min.X).Ceil()
+
+				if secondTextWidth > maxTextWidth {
+					smallFace.Close()
+					smallFontSize -= 10
+					if smallFontSize < 20 {
+						break
+					}
+					continue
+				}
+				break
+			}
+
+			secondTextBounds, _ := font.BoundString(smallFace, secondText)
+			secondTextWidth := (secondTextBounds.Max.X - secondTextBounds.Min.X).Ceil()
 
 			smallDrawer := &font.Drawer{
 				Dst:  rgba,
@@ -439,19 +505,12 @@ func (s *ImageService) GenerateEKImagesWithFontSize(
 				Face: smallFace,
 			}
 
-			secondTextBounds, _ := font.BoundString(smallFace, secondText)
-			secondTextWidth := (secondTextBounds.Max.X - secondTextBounds.Min.X).Ceil()
-
 			secondPointX := (imgWidth - secondTextWidth) / 2
 			secondPointY := pointY + textHeight + 20 // 첫 번째 텍스트 아래 20픽셀 간격
 
-			secondPoint := fixed.Point26_6{
-				X: fixed.I(secondPointX),
-				Y: fixed.I(secondPointY),
-			}
-
-			smallDrawer.Dot = secondPoint
+			smallDrawer.Dot = fixed.Point26_6{X: fixed.I(secondPointX), Y: fixed.I(secondPointY)}
 			smallDrawer.DrawString(secondText)
+			smallFace.Close()
 		}
 
 		// 이미지 저장
