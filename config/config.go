@@ -26,9 +26,7 @@ var Config = struct {
 		Name string
 	}
 	FontPath       string
-	StartImagePath string
 	StartAudioPath string
-	GoodImagePath  string
 	Paths          struct {
 		TempDir       string
 		TempImagesDir string
@@ -37,9 +35,11 @@ var Config = struct {
 		FinalVideoDir string
 		TemplateDir   string
 		Templates     struct {
-			Vertical     string // 세로형 비디오 공통 템플릿 (2026_ver1.png)
-			Long         string
-			Title        string
+			Vertical      string
+			BackgroundImg string
+			Title         string
+			StartImg      string
+			GoodImg       string
 			StartComment string
 		}
 	}

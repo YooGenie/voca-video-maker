@@ -165,7 +165,14 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 		textHeight := (textBounds.Max.Y - textBounds.Min.Y).Ceil()
 
 		pointX := (imgWidth - textWidth) / 2
-		pointY := (imgHeight+textHeight)/2 - 180
+		// 비디오 방향에 따라 Y 오프셋 조정 (가로형: 아래쪽, 세로형: 위쪽)
+		var yOffset int
+		if imgWidth > imgHeight { // 가로형 비디오
+			yOffset = -100
+		} else { // 세로형 비디오
+			yOffset = -180
+		}
+		pointY := (imgHeight+textHeight)/2 + yOffset
 
 		// 이미지에 텍스트 그리기
 		d := &font.Drawer{

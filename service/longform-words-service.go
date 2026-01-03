@@ -3,6 +3,7 @@ package service
 import (
 	"auto-video-service/config"
 	"auto-video-service/entity"
+	"auto-video-service/enum"
 	"auto-video-service/repository"
 	"context"
 	"fmt"
@@ -58,7 +59,7 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 	videoPaths := []string{titleVideoPath}
 
 	// 1-1. 스타트 코멘트 비디오 연결 (없으면 자동 생성)
-	startCommentVideoPath := "template/start_comment.mp4"
+	startCommentVideoPath := config.Config.Paths.Templates.StartComment
 	if _, err := os.Stat(startCommentVideoPath); os.IsNotExist(err) {
 		log.Println("스타트 코멘트 비디오가 없습니다. 자동 생성합니다...")
 		startService := NewStartService()
@@ -78,7 +79,18 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 		pronunciations[i] = lw.PronunciationKr
 	}
 
-	if err := imageService.GenerateBasicImages(config.Config.Paths.Templates.Long, words, meanings, pronunciations, filepath.Join(imagesDir, "output"), len(longformWords)*2); err != nil {
+	if err := imageService.GenerateBasicImagesWithFontSize(
+		config.Config.Paths.Templates.BackgroundImg,
+		words,
+		[]string{}, // engLine2 (없음)
+		meanings,
+		[]string{}, // korLine2 (없음)
+		pronunciations,
+		filepath.Join(imagesDir, "output"),
+		len(longformWords)*2,
+		120,                  // fontSize
+		enum.TextColorBlack,  // 검정색 텍스트
+	); err != nil {
 		log.Fatalf("이미지 생성 실패: %v", err)
 	}
 	log.Println("✅ 본문 이미지 생성 완료!")
@@ -116,8 +128,8 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 			imagePath := fmt.Sprintf("%s/output_%02d.png", imagesDir, i+1)
 			englishAudioPath := fmt.Sprintf("%s/eng_%d.mp3", audioDir, i/2)
 			videoFileName = fmt.Sprintf("video_%d.mp4", i)
-			// 영어 2회 반복, 반복 사이 2초 무음, 끝에 1초 무음
-			if err := videoService.CreateVideoWithEnglishRepeat(imagePath, englishAudioPath, filepath.Join(videosDir, videoFileName), 1, 2); err != nil {
+			// 영어 2회 반복, 반복 사이 2초 무음, 끝에 무음 없음
+			if err := videoService.CreateVideoWithEnglishRepeat(imagePath, englishAudioPath, filepath.Join(videosDir, videoFileName), 0, 2); err != nil {
 				log.Fatalf("영어 영상 생성 실패 (%d): %v", i, err)
 			}
 		}

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"auto-video-service/config"
 	"context"
 	"fmt"
 	"log"
@@ -25,7 +26,7 @@ func (s *StartService) CreateStartCommentVideo(ctx context.Context, targetDate t
 	videoService := NewVideoService(imageService, videoConfig)
 
 	// 출력 경로 설정
-	outputPath := "template/start_comment.mp4"
+	outputPath := config.Config.Paths.Templates.StartComment
 
 	// 디렉토리 확인 및 생성
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
