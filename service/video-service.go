@@ -97,7 +97,7 @@ func (s *VideoService) CreateVideoToAudioLength(
 func (s *VideoService) CreateStartCommentVideo(
 	outputPath string,
 ) error {
-	imagePath := config.Config.StartImagePath
+	imagePath := config.Config.Paths.Templates.StartImg
 	audioPath := config.Config.StartAudioPath
 
 	cmd := exec.Command("ffmpeg",
@@ -128,7 +128,7 @@ func (s *VideoService) CreateStartCommentVideo(
 func (s *VideoService) CreateGoodVideo(
 	outputPath string,
 ) error {
-	imagePath := config.Config.GoodImagePath
+	imagePath := config.Config.Paths.Templates.GoodImg
 	duration := 3.0 // 3초
 
 	cmd := exec.Command("ffmpeg",
