@@ -17,12 +17,95 @@ import (
 	"github.com/disintegration/imaging"
 )
 
+// =============================================================================
+// 타이틀 이미지 관련 상수 (SetTitleOnImage)
+// =============================================================================
+const (
+	// 타이틀 영역 여백
+	titleLeftMargin  = 830 // 왼쪽 여백 (그림 영역 피하기)
+	titleRightMargin = 150 // 오른쪽 여백
+
+	// 타이틀 폰트 크기
+	titleMaxFontSize  = 120.0 // 최대 폰트 크기
+	titleMinFontSize  = 10.0  // 최소 폰트 크기
+	titleFontSizeStep = 5.0   // 폰트 크기 감소 단위
+
+	// 타이틀 위치 오프셋
+	titleYOffset = 150 // Y축 위로 이동
+
+	// 타이틀 그림자/외곽선
+	titleShadowOffset  = 8   // 그림자 오프셋
+	titleOutlineOffset = 5   // 외곽선 굵기
+	titleBlurSigma     = 4.0 // 그림자 블러 강도
+
+	// 서브타이틀 관련
+	subtitleFontRatio  = 0.9  // 타이틀 대비 서브타이틀 폰트 비율
+	subtitleMaxFont    = 70.0 // 서브타이틀 최대 폰트 크기
+	subtitleMinFont    = 25.0 // 서브타이틀 최소 폰트 크기
+	subtitleSpacing    = 30   // 타이틀과 서브타이틀 간격
+	subtitleShadowOff  = 8    // 서브타이틀 그림자 오프셋
+	subtitleOutlineOff = 5    // 서브타이틀 외곽선 굵기
+	subtitleBlurSigma  = 3.0  // 서브타이틀 블러 강도
+)
+
 // ImageService 이미지 생성 서비스
 type ImageService struct{}
 
 // NewImageService 새로운 이미지 서비스 생성
 func NewImageService() *ImageService {
 	return &ImageService{}
+}
+
+// TextRenderOptions 텍스트 렌더링 옵션
+type TextRenderOptions struct {
+	ShadowOffset  int
+	OutlineOffset int
+	MainColor     color.RGBA
+	OutlineColor  color.RGBA
+	ShadowColor   color.RGBA
+}
+
+// drawTextWithShadowAndOutline 그림자, 외곽선, 메인 텍스트를 한번에 그리는 헬퍼 함수
+func drawTextWithShadowAndOutline(
+	dst *image.RGBA,
+	face font.Face,
+	text string,
+	pointX, pointY int,
+	opts TextRenderOptions,
+) {
+	// 1. 그림자 그리기
+	shadowDrawer := &font.Drawer{
+		Dst:  dst,
+		Src:  image.NewUniform(opts.ShadowColor),
+		Face: face,
+		Dot:  fixed.Point26_6{X: fixed.I(pointX + opts.ShadowOffset), Y: fixed.I(pointY + opts.ShadowOffset)},
+	}
+	shadowDrawer.DrawString(text)
+
+	// 2. 외곽선 그리기 (8방향)
+	offsets := []struct{ dx, dy int }{
+		{-opts.OutlineOffset, -opts.OutlineOffset}, {0, -opts.OutlineOffset}, {opts.OutlineOffset, -opts.OutlineOffset},
+		{-opts.OutlineOffset, 0}, {opts.OutlineOffset, 0},
+		{-opts.OutlineOffset, opts.OutlineOffset}, {0, opts.OutlineOffset}, {opts.OutlineOffset, opts.OutlineOffset},
+	}
+	for _, off := range offsets {
+		outlineDrawer := &font.Drawer{
+			Dst:  dst,
+			Src:  image.NewUniform(opts.OutlineColor),
+			Face: face,
+			Dot:  fixed.Point26_6{X: fixed.I(pointX + off.dx), Y: fixed.I(pointY + off.dy)},
+		}
+		outlineDrawer.DrawString(text)
+	}
+
+	// 3. 메인 텍스트 그리기
+	mainDrawer := &font.Drawer{
+		Dst:  dst,
+		Src:  image.NewUniform(opts.MainColor),
+		Face: face,
+		Dot:  fixed.Point26_6{X: fixed.I(pointX), Y: fixed.I(pointY)},
+	}
+	mainDrawer.DrawString(text)
 }
 
 // GenerateBasicImages 단어 학습용 이미지들을 생성합니다
@@ -677,10 +760,8 @@ func (s *ImageService) SetTitleOnImage(title, subTitle, imagePath, outputPath st
 	imgHeight := rgba.Bounds().Dy()
 
 	// 텍스트 영역 정의 (왼쪽 그림 영역 피하기, 양쪽 여백 확보)
-	leftMargin := 830                         // 왼쪽 여백 (그림 영역 피하기)
-	rightMargin := 150                        // 오른쪽 여백
-	rightAreaEnd := imgWidth - rightMargin    // 텍스트 영역 끝점
-	maxTextWidth := rightAreaEnd - leftMargin // 동적으로 텍스트 영역 너비 계산
+	rightAreaEnd := imgWidth - titleRightMargin    // 텍스트 영역 끝점
+	maxTextWidth := rightAreaEnd - titleLeftMargin // 동적으로 텍스트 영역 너비 계산
 
 	// 색상 정의
 	mainColor := color.RGBA{R: 0x8F, G: 0x5B, B: 0x34, A: 255} // #8F5B34 갈색
@@ -688,7 +769,7 @@ func (s *ImageService) SetTitleOnImage(title, subTitle, imagePath, outputPath st
 
 	// === 타이틀 동적 폰트 크기 조절 ===
 	var titleFace font.Face
-	titleFontSize := 120.0 // 최대 폰트 크기
+	titleFontSize := titleMaxFontSize
 
 	for {
 		var faceErr error
@@ -706,8 +787,8 @@ func (s *ImageService) SetTitleOnImage(title, subTitle, imagePath, outputPath st
 
 		if textWidth > maxTextWidth {
 			titleFace.Close()
-			titleFontSize -= 5
-			if titleFontSize < 10 { // 최소 폰트 크기
+			titleFontSize -= titleFontSizeStep
+			if titleFontSize < titleMinFontSize {
 				break
 			}
 			continue
@@ -722,36 +803,34 @@ func (s *ImageService) SetTitleOnImage(title, subTitle, imagePath, outputPath st
 	textHeight := (textBounds.Max.Y - textBounds.Min.Y).Ceil()
 
 	// 타이틀 왼쪽 정렬
-	pointX := leftMargin
+	pointX := titleLeftMargin
 	// 오른쪽 경계를 넘지 않도록 제한
 	if pointX+textWidth > rightAreaEnd {
 		pointX = rightAreaEnd - textWidth
 	}
-	pointY := (imgHeight+textHeight)/2 - 150 // 위로 더 이동
+	pointY := (imgHeight+textHeight)/2 - titleYOffset
 
 	// === 그림자 그리기 (블러 적용) ===
-	shadowOffset := 8
-	shadowLayer := image.NewRGBA(rgba.Bounds()) // 그림자용 별도 레이어
+	shadowLayer := image.NewRGBA(rgba.Bounds())
 	shadowDrawer := &font.Drawer{
 		Dst:  shadowLayer,
-		Src:  image.NewUniform(color.RGBA{R: 0, G: 0, B: 0, A: 180}), // 진한 그림자 (블러되면 연해짐)
+		Src:  image.NewUniform(color.RGBA{R: 0, G: 0, B: 0, A: 180}),
 		Face: titleFace,
-		Dot:  fixed.Point26_6{X: fixed.I(pointX + shadowOffset), Y: fixed.I(pointY + shadowOffset)},
+		Dot:  fixed.Point26_6{X: fixed.I(pointX + titleShadowOffset), Y: fixed.I(pointY + titleShadowOffset)},
 	}
 	shadowDrawer.DrawString(title)
 
 	// 블러 처리
-	blurredShadow := imaging.Blur(shadowLayer, 4.0) // Sigma 4.0
+	blurredShadow := imaging.Blur(shadowLayer, titleBlurSigma)
 
 	// 원본에 합성
 	draw.Draw(rgba, rgba.Bounds(), blurredShadow, image.Point{}, draw.Over)
 
 	// === 외곽선 그리기 (8방향) ===
-	outlineOffset := 5
 	offsets := []struct{ dx, dy int }{
-		{-outlineOffset, -outlineOffset}, {0, -outlineOffset}, {outlineOffset, -outlineOffset},
-		{-outlineOffset, 0}, {outlineOffset, 0},
-		{-outlineOffset, outlineOffset}, {0, outlineOffset}, {outlineOffset, outlineOffset},
+		{-titleOutlineOffset, -titleOutlineOffset}, {0, -titleOutlineOffset}, {titleOutlineOffset, -titleOutlineOffset},
+		{-titleOutlineOffset, 0}, {titleOutlineOffset, 0},
+		{-titleOutlineOffset, titleOutlineOffset}, {0, titleOutlineOffset}, {titleOutlineOffset, titleOutlineOffset},
 	}
 	for _, off := range offsets {
 		outlineDrawer := &font.Drawer{
@@ -786,10 +865,9 @@ func (s *ImageService) SetTitleOnImage(title, subTitle, imagePath, outputPath st
 
 		// === 서브타이틀 동적 폰트 크기 조절 ===
 		var subFace font.Face
-		// 타이틀 폰트 크기의 80%로 제한 (타이틀보다 항상 작게)
-		subFontSize := titleFontSize * 0.9
-		if subFontSize > 70 {
-			subFontSize = 70 // 최대 70
+		subFontSize := titleFontSize * subtitleFontRatio
+		if subFontSize > subtitleMaxFont {
+			subFontSize = subtitleMaxFont
 		}
 
 		for {
@@ -808,8 +886,8 @@ func (s *ImageService) SetTitleOnImage(title, subTitle, imagePath, outputPath st
 
 			if subTextWidth > maxTextWidth {
 				subFace.Close()
-				subFontSize -= 5
-				if subFontSize < 25 {
+				subFontSize -= titleFontSizeStep
+				if subFontSize < subtitleMinFont {
 					break
 				}
 				continue
@@ -820,31 +898,28 @@ func (s *ImageService) SetTitleOnImage(title, subTitle, imagePath, outputPath st
 
 		subTitleBounds, _ := font.BoundString(subFace, subTitle)
 		subTitleWidth := (subTitleBounds.Max.X - subTitleBounds.Min.X).Ceil()
-		subTitleHeight := (subTitleBounds.Max.Y - subTitleBounds.Min.Y).Ceil()
 
 		// 서브타이틀은 타이틀 너비를 기준으로 가운데 정렬
 		subTitlePointX := pointX + (textWidth-subTitleWidth)/2
-		subTitlePointY := pointY + textHeight + 30 // Below title with 30px spacing
+		subTitlePointY := pointY + textHeight + subtitleSpacing
 
 		// 서브타이틀 그림자 (블러 적용)
-		subShadowOffset := 8 // 그림자 오프셋
 		subShadowLayer := image.NewRGBA(rgba.Bounds())
 		subShadowDrawer := &font.Drawer{
 			Dst:  subShadowLayer,
 			Src:  image.NewUniform(color.RGBA{R: 0, G: 0, B: 0, A: 180}),
 			Face: subFace,
-			Dot:  fixed.Point26_6{X: fixed.I(subTitlePointX + subShadowOffset), Y: fixed.I(subTitlePointY + subShadowOffset)},
+			Dot:  fixed.Point26_6{X: fixed.I(subTitlePointX + subtitleShadowOff), Y: fixed.I(subTitlePointY + subtitleShadowOff)},
 		}
 		subShadowDrawer.DrawString(subTitle)
-		subBlurredShadow := imaging.Blur(subShadowLayer, 3.0)
+		subBlurredShadow := imaging.Blur(subShadowLayer, subtitleBlurSigma)
 		draw.Draw(rgba, rgba.Bounds(), subBlurredShadow, image.Point{}, draw.Over)
 
 		// 서브타이틀 외곽선
-		smallOutlineOffset := 5
 		smallOffsets := []struct{ dx, dy int }{
-			{-smallOutlineOffset, -smallOutlineOffset}, {0, -smallOutlineOffset}, {smallOutlineOffset, -smallOutlineOffset},
-			{-smallOutlineOffset, 0}, {smallOutlineOffset, 0},
-			{-smallOutlineOffset, smallOutlineOffset}, {0, smallOutlineOffset}, {smallOutlineOffset, smallOutlineOffset},
+			{-subtitleOutlineOff, -subtitleOutlineOff}, {0, -subtitleOutlineOff}, {subtitleOutlineOff, -subtitleOutlineOff},
+			{-subtitleOutlineOff, 0}, {subtitleOutlineOff, 0},
+			{-subtitleOutlineOff, subtitleOutlineOff}, {0, subtitleOutlineOff}, {subtitleOutlineOff, subtitleOutlineOff},
 		}
 		for _, off := range smallOffsets {
 			subOutlineDrawer := &font.Drawer{
@@ -864,7 +939,6 @@ func (s *ImageService) SetTitleOnImage(title, subTitle, imagePath, outputPath st
 			Dot:  fixed.Point26_6{X: fixed.I(subTitlePointX), Y: fixed.I(subTitlePointY)},
 		}
 		subMainDrawer.DrawString(subTitle)
-		_ = subTitleHeight // unused but kept for potential future use
 	}
 
 	// Save image
@@ -930,10 +1004,9 @@ func (s *ImageService) GenerateLongformImages(
 			expectedLength, len(eng), len(kor), len(pronounce))
 	}
 
-	fontSize := 120.0
 	imgWidth := img.Bounds().Dx()
 	imgHeight := img.Bounds().Dy()
-	maxTextWidth := int(float64(imgWidth) * 0.8) // 가로형이므로 80%
+	maxTextWidth := int(float64(imgWidth) * enum.LongformMaxTextWidthRatio)
 
 	// 5. 이미지들 생성
 	for i := 0; i < count; i++ {
@@ -953,7 +1026,7 @@ func (s *ImageService) GenerateLongformImages(
 
 		// 동적 폰트 크기 조절
 		var face font.Face
-		currentFontSize := fontSize
+		currentFontSize := enum.LongformMaxFontSize
 
 		for {
 			var faceErr error
@@ -971,8 +1044,8 @@ func (s *ImageService) GenerateLongformImages(
 
 			if textWidth > maxTextWidth {
 				face.Close()
-				currentFontSize -= 10
-				if currentFontSize < 20 {
+				currentFontSize -= enum.LongformFontSizeStep
+				if currentFontSize < enum.LongformMinFontSize {
 					break
 				}
 				continue
@@ -986,49 +1059,22 @@ func (s *ImageService) GenerateLongformImages(
 		textHeight := (textBounds.Max.Y - textBounds.Min.Y).Ceil()
 
 		pointX := (imgWidth - textWidth) / 2
-		pointY := (imgHeight+textHeight)/2 - 100 // 가로형 오프셋
+		pointY := (imgHeight+textHeight)/2 - enum.LongformYOffset
 
-		// === 그림자 그리기 (오른쪽 아래로 오프셋) ===
-		shadowOffset := 8
-		shadowDrawer := &font.Drawer{
-			Dst:  rgba,
-			Src:  image.NewUniform(shadowColor),
-			Face: face,
-			Dot:  fixed.Point26_6{X: fixed.I(pointX + shadowOffset), Y: fixed.I(pointY + shadowOffset)},
-		}
-		shadowDrawer.DrawString(text)
-
-		// === 외곽선 그리기 (8방향) ===
-		outlineOffset := 5
-		offsets := []struct{ dx, dy int }{
-			{-outlineOffset, -outlineOffset}, {0, -outlineOffset}, {outlineOffset, -outlineOffset},
-			{-outlineOffset, 0}, {outlineOffset, 0},
-			{-outlineOffset, outlineOffset}, {0, outlineOffset}, {outlineOffset, outlineOffset},
-		}
-		for _, off := range offsets {
-			outlineDrawer := &font.Drawer{
-				Dst:  rgba,
-				Src:  image.NewUniform(outlineColor),
-				Face: face,
-				Dot:  fixed.Point26_6{X: fixed.I(pointX + off.dx), Y: fixed.I(pointY + off.dy)},
-			}
-			outlineDrawer.DrawString(text)
-		}
-
-		// === 메인 텍스트 그리기 ===
-		mainDrawer := &font.Drawer{
-			Dst:  rgba,
-			Src:  image.NewUniform(mainColor),
-			Face: face,
-			Dot:  fixed.Point26_6{X: fixed.I(pointX), Y: fixed.I(pointY)},
-		}
-		mainDrawer.DrawString(text)
+		// === 텍스트 렌더링 (그림자 + 외곽선 + 메인) ===
+		drawTextWithShadowAndOutline(rgba, face, text, pointX, pointY, TextRenderOptions{
+			ShadowOffset:  enum.LongformShadowOffset,
+			OutlineOffset: enum.LongformOutlineOffset,
+			MainColor:     mainColor,
+			OutlineColor:  outlineColor,
+			ShadowColor:   shadowColor,
+		})
 		face.Close()
 
 		// 발음 텍스트 (두 번째 줄)
 		if secondText != "" {
 			var smallFace font.Face
-			smallFontSize := 75.0
+			smallFontSize := enum.PronounceMaxFontSize
 
 			// 동적 폰트 크기 조절
 			for {
@@ -1047,8 +1093,8 @@ func (s *ImageService) GenerateLongformImages(
 
 				if secondTextWidth > maxTextWidth {
 					smallFace.Close()
-					smallFontSize -= 10
-					if smallFontSize < 20 {
+					smallFontSize -= enum.LongformFontSizeStep
+					if smallFontSize < enum.LongformMinFontSize {
 						break
 					}
 					continue
@@ -1060,43 +1106,16 @@ func (s *ImageService) GenerateLongformImages(
 			secondTextWidth := (secondTextBounds.Max.X - secondTextBounds.Min.X).Ceil()
 
 			secondPointX := (imgWidth - secondTextWidth) / 2
-			secondPointY := pointY + textHeight + 20
+			secondPointY := pointY + textHeight + enum.PronounceSpacing
 
-			// 발음도 그림자 + 외곽선 + 메인 텍스트
-			// 그림자
-			smallShadowDrawer := &font.Drawer{
-				Dst:  rgba,
-				Src:  image.NewUniform(shadowColor),
-				Face: smallFace,
-				Dot:  fixed.Point26_6{X: fixed.I(secondPointX + 3), Y: fixed.I(secondPointY + 3)},
-			}
-			smallShadowDrawer.DrawString(secondText)
-
-			// 외곽선
-			smallOutlineOffset := 2
-			smallOffsets := []struct{ dx, dy int }{
-				{-smallOutlineOffset, -smallOutlineOffset}, {0, -smallOutlineOffset}, {smallOutlineOffset, -smallOutlineOffset},
-				{-smallOutlineOffset, 0}, {smallOutlineOffset, 0},
-				{-smallOutlineOffset, smallOutlineOffset}, {0, smallOutlineOffset}, {smallOutlineOffset, smallOutlineOffset},
-			}
-			for _, off := range smallOffsets {
-				smallOutlineDrawer := &font.Drawer{
-					Dst:  rgba,
-					Src:  image.NewUniform(outlineColor),
-					Face: smallFace,
-					Dot:  fixed.Point26_6{X: fixed.I(secondPointX + off.dx), Y: fixed.I(secondPointY + off.dy)},
-				}
-				smallOutlineDrawer.DrawString(secondText)
-			}
-
-			// 메인
-			smallMainDrawer := &font.Drawer{
-				Dst:  rgba,
-				Src:  image.NewUniform(mainColor),
-				Face: smallFace,
-				Dot:  fixed.Point26_6{X: fixed.I(secondPointX), Y: fixed.I(secondPointY)},
-			}
-			smallMainDrawer.DrawString(secondText)
+			// === 발음 텍스트 렌더링 (그림자 + 외곽선 + 메인) ===
+			drawTextWithShadowAndOutline(rgba, smallFace, secondText, secondPointX, secondPointY, TextRenderOptions{
+				ShadowOffset:  enum.PronounceShadowOffset,
+				OutlineOffset: enum.PronounceOutlineOffset,
+				MainColor:     mainColor,
+				OutlineColor:  outlineColor,
+				ShadowColor:   shadowColor,
+			})
 			smallFace.Close()
 		}
 

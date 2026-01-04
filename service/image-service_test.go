@@ -3,11 +3,31 @@ package service
 import (
 	"auto-video-service/config"
 	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 )
 
+// getProjectRoot returns the project root directory based on the current file's location
+func getProjectRoot() string {
+	_, currentFile, _, _ := runtime.Caller(0)
+	return filepath.Dir(filepath.Dir(currentFile))
+}
+
 func TestSetTitleOnImage(t *testing.T) {
-	if err := os.Chdir(".."); err != nil {
+	projectRoot := getProjectRoot()
+
+	// Save current directory and restore after test
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(originalDir)
+	}()
+
+	// Change to project root for relative path compatibility
+	if err := os.Chdir(projectRoot); err != nil {
 		t.Fatalf("Failed to change directory: %v", err)
 	}
 
@@ -21,7 +41,7 @@ func TestSetTitleOnImage(t *testing.T) {
 	imagePath := config.Config.Paths.Templates.Title
 	outPath := "template/titleImage.png"
 
-	err := service.SetTitleOnImage(title, subTitle, imagePath, outPath)
+	err = service.SetTitleOnImage(title, subTitle, imagePath, outPath)
 	if err != nil {
 		t.Fatalf("SetTitleOnImage failed: %v", err)
 	}
