@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 )
 
 // VideoConfig 비디오 설정을 담는 구조체
@@ -43,7 +44,7 @@ func (s *VideoService) CreateVideoWithAudioAndImage(
 		"-preset", "fast",
 		"-profile:v", "baseline",
 		"-level", "3.0",
-		"-crf", "25",
+		"-crf", "18",
 		"-vf", fmt.Sprintf("scale=%d:%d,fps=30", s.config.Width, s.config.Height),
 		"-c:a", "aac",
 		"-b:a", "128k",
@@ -77,7 +78,7 @@ func (s *VideoService) CreateVideoToAudioLength(
 		"-preset", "fast",
 		"-profile:v", "baseline",
 		"-level", "3.0",
-		"-crf", "25",
+		"-crf", "18",
 		"-vf", fmt.Sprintf("scale=%d:%d,format=yuv420p,fps=30", s.config.Width, s.config.Height),
 		"-c:a", "aac",
 		"-b:a", "128k",
@@ -108,7 +109,7 @@ func (s *VideoService) CreateStartCommentVideo(
 		"-preset", "fast",
 		"-profile:v", "baseline",
 		"-level", "3.0",
-		"-crf", "25",
+		"-crf", "18",
 		"-vf", fmt.Sprintf("scale=%d:%d,format=yuv420p,fps=30", s.config.Width, s.config.Height),
 		"-c:a", "aac",
 		"-b:a", "128k",
@@ -140,7 +141,7 @@ func (s *VideoService) CreateGoodVideo(
 		"-preset", "fast",
 		"-profile:v", "baseline",
 		"-level", "3.0",
-		"-crf", "25",
+		"-crf", "18",
 		"-vf", fmt.Sprintf("scale=%d:%d,format=yuv420p,fps=30", s.config.Width, s.config.Height),
 		"-c:a", "aac",
 		"-b:a", "128k",
@@ -190,7 +191,7 @@ func (s *VideoService) CreateVideoWithKorean(
 		"-preset", "fast",
 		"-profile:v", "baseline",
 		"-level", "3.0",
-		"-crf", "25",
+		"-crf", "18",
 		"-vf", fmt.Sprintf("scale=%d:%d,format=yuv420p,fps=30", s.config.Width, s.config.Height),
 		"-c:a", "aac",
 		"-b:a", "128k",
@@ -280,7 +281,7 @@ func (s *VideoService) CreateVideoWithEnglishRepeat(
 		"-preset", "fast",
 		"-profile:v", "baseline",
 		"-level", "3.0",
-		"-crf", "25",
+		"-crf", "18",
 		"-vf", fmt.Sprintf("scale=%d:%d,format=yuv420p,fps=30", s.config.Width, s.config.Height),
 		"-c:a", "aac",
 		"-b:a", "128k",
@@ -303,7 +304,7 @@ func (s *VideoService) CreateVideoWithEnglishRepeat(
 	return nil
 }
 
-// ConcatenateVideos 여러 영상을 하나로 합칩니다
+// ConcatenateVideos 여러 영상을 하나로 합칩니다 (메타데이터 포함)
 func (s *VideoService) ConcatenateVideos(
 	videoPaths []string,
 	outputPath string,
@@ -335,20 +336,50 @@ func (s *VideoService) ConcatenateVideos(
 	}
 	file.Close()
 
-	// ffmpeg로 영상들 합치기
-	cmd := exec.Command("ffmpeg",
+	// 1단계: 영상 합치기 (임시 파일로)
+	tempOutputPath := outputPath + ".temp.mp4"
+	defer os.Remove(tempOutputPath) // 임시 파일 삭제
+
+	concatCmd := exec.Command("ffmpeg",
 		"-f", "concat",
 		"-safe", "0",
 		"-i", fileListPath,
 		"-c", "copy",
-		"-y", // 기존 파일 덮어쓰기
+		"-y",
+		tempOutputPath,
+	)
+
+	concatCmd.Stdout = os.Stdout
+	concatCmd.Stderr = os.Stderr
+
+	if err := concatCmd.Run(); err != nil {
+		return fmt.Errorf("영상 합치기 실패: %v", err)
+	}
+
+	// 2단계: 메타데이터 추가하여 최종 파일로 저장
+	creationTime := time.Now().Format(time.RFC3339)
+	metadata := config.Config.VideoMetadata
+
+	metadataCmd := exec.Command("ffmpeg",
+		"-i", tempOutputPath,
+		"-c", "copy",
+		"-map_metadata", "-1", // 기존 메타데이터 제거
+		"-metadata", fmt.Sprintf("title=%s", metadata.Title),
+		"-metadata", fmt.Sprintf("description=%s", metadata.Description),
+		"-metadata", fmt.Sprintf("artist=%s", metadata.Creator),
+		"-metadata", fmt.Sprintf("copyright=%s", metadata.Copyright),
+		"-metadata", fmt.Sprintf("keywords=%s", metadata.Keywords),
+		"-metadata", fmt.Sprintf("language=%s", metadata.Language),
+		"-metadata", fmt.Sprintf("genre=%s", metadata.Category),
+		"-metadata", fmt.Sprintf("creation_time=%s", creationTime),
+		"-movflags", "+faststart",
+		"-y",
 		outputPath,
 	)
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return cmd.Run()
+	metadataCmd.Stdout = os.Stdout
+	metadataCmd.Stderr = os.Stderr
+	return metadataCmd.Run()
 }
 
 // CreateSilenceVideo 지정된 길이의 무음/검은 화면 비디오를 생성합니다

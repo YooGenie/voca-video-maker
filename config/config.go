@@ -29,7 +29,7 @@ var Config = struct {
 	BoldFontPath   string
 	TitleFontPath  string
 	StartAudioPath string
-	Paths          struct {
+	Paths struct {
 		TempDir       string
 		TempImagesDir string
 		TempAudioDir  string
@@ -44,6 +44,15 @@ var Config = struct {
 			GoodImg       string
 			StartComment  string
 		}
+	}
+	VideoMetadata struct {
+		Title       string
+		Description string
+		Creator     string
+		Copyright   string
+		Keywords    string
+		Language    string
+		Category    string
 	}
 }{}
 
