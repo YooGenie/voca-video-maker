@@ -3,7 +3,6 @@ package service
 import (
 	"auto-video-service/config"
 	"auto-video-service/entity"
-	"auto-video-service/enum"
 	"auto-video-service/repository"
 	"context"
 	"fmt"
@@ -79,17 +78,13 @@ func (s *LongformWordService) CreateLongformWords(ctx context.Context, targetDat
 		pronunciations[i] = lw.PronunciationKr
 	}
 
-	if err := imageService.GenerateBasicImagesWithFontSize(
+	if err := imageService.GenerateLongformImages(
 		config.Config.Paths.Templates.BackgroundImg,
 		words,
-		[]string{}, // engLine2 (없음)
 		meanings,
-		[]string{}, // korLine2 (없음)
 		pronunciations,
 		filepath.Join(imagesDir, "output"),
 		len(longformWords)*2,
-		120,                  // fontSize
-		enum.TextColorBlack,  // 검정색 텍스트
 	); err != nil {
 		log.Fatalf("이미지 생성 실패: %v", err)
 	}

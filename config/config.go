@@ -26,6 +26,8 @@ var Config = struct {
 		Name string
 	}
 	FontPath       string
+	BoldFontPath   string
+	TitleFontPath  string
 	StartAudioPath string
 	Paths          struct {
 		TempDir       string
@@ -40,7 +42,7 @@ var Config = struct {
 			Title         string
 			StartImg      string
 			GoodImg       string
-			StartComment string
+			StartComment  string
 		}
 	}
 }{}
