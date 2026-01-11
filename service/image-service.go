@@ -36,7 +36,7 @@ const (
 	// 타이틀 그림자/외곽선
 	titleShadowOffset  = 8   // 그림자 오프셋
 	titleOutlineOffset = 5   // 외곽선 굵기
-	titleBlurSigma     = 4.0 // 그림자 블러 강도
+	titleBlurSigma     = 3.0 // 그림자 블러 강도
 
 	// 서브타이틀 관련
 	subtitleFontRatio  = 0.9  // 타이틀 대비 서브타이틀 폰트 비율
@@ -187,6 +187,7 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 		var text string
 		var secondText string
 		var thirdText string
+		var topText string // 영어 위에 표시할 한글 뜻
 
 		if i%2 == 0 { // 짝수 번째 (0, 2, 4, ...) - 한국어
 			text = kor[i/2]
@@ -196,6 +197,8 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 			}
 		} else { // 홀수 번째 (1, 3, 5, ...) - 영어
 			text = eng[i/2]
+			// 영어 위에 한글 뜻 표시
+			topText = kor[i/2]
 			// SS 타입: engLine2가 있으면 두 번째 줄로 표시
 			if len(engLine2) > i/2 && engLine2[i/2] != "" {
 				secondText = engLine2[i/2]
@@ -260,6 +263,27 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 		pointY := (imgHeight+textHeight)/2 + yOffset
 
 		// 이미지에 텍스트 그리기
+		// 1. 그림자 먼저 그리기 (홀수 페이지 = 영어)
+		if topText != "" {
+			shadowOffsetX := 4
+			shadowOffsetY := 5
+			shadowBlur := 4.0
+			shadowColor := color.RGBA{R: 245, G: 245, B: 220, A: 128} // #F5F5DC, 50% 투명도
+
+			shadowCanvas := image.NewRGBA(rgba.Bounds())
+			shadowDrawer := &font.Drawer{
+				Dst:  shadowCanvas,
+				Src:  image.NewUniform(shadowColor),
+				Face: face,
+				Dot:  fixed.Point26_6{X: fixed.I(pointX + shadowOffsetX), Y: fixed.I(pointY + shadowOffsetY)},
+			}
+			shadowDrawer.DrawString(text)
+
+			blurredShadow := imaging.Blur(shadowCanvas, shadowBlur)
+			draw.Draw(rgba, rgba.Bounds(), blurredShadow, image.Point{}, draw.Over)
+		}
+
+		// 2. 메인 텍스트 그리기
 		d := &font.Drawer{
 			Dst:  rgba,
 			Src:  image.NewUniform(textColor),
@@ -268,6 +292,56 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 		}
 		d.DrawString(text)
 		face.Close() // 텍스트를 그린 후 face를 닫아줍니다.
+
+		// 영어 위에 한글 뜻 표시 (topText가 있을 경우)
+		if topText != "" {
+			var topFace font.Face
+			topFontSize := 75.0 // 발음과 동일한 크기
+
+			for {
+				var faceErr error
+				topFace, faceErr = opentype.NewFace(parsedFont, &opentype.FaceOptions{
+					Size:    topFontSize,
+					DPI:     72,
+					Hinting: font.HintingFull,
+				})
+				if faceErr != nil {
+					return fmt.Errorf("한글 뜻 폰트 페이스 생성 실패: %v", faceErr)
+				}
+
+				topTextBounds, _ := font.BoundString(topFace, topText)
+				topTextWidth := (topTextBounds.Max.X - topTextBounds.Min.X).Ceil()
+
+				if topTextWidth > maxTextWidth {
+					topFace.Close()
+					topFontSize -= 10
+					if topFontSize < 20 {
+						break
+					}
+					continue
+				}
+				break
+			}
+
+			topTextBounds, _ := font.BoundString(topFace, topText)
+			topTextWidth := (topTextBounds.Max.X - topTextBounds.Min.X).Ceil()
+			topTextHeight := (topTextBounds.Max.Y - topTextBounds.Min.Y).Ceil()
+
+			topPointX := (imgWidth - topTextWidth) / 2
+			topPointY := pointY - textHeight - 50 // 메인 텍스트 위 30픽셀 간격
+
+			topDrawer := &font.Drawer{
+				Dst:  rgba,
+				Src:  image.NewUniform(textColor),
+				Face: topFace,
+				Dot:  fixed.Point26_6{X: fixed.I(topPointX), Y: fixed.I(topPointY)},
+			}
+			topDrawer.DrawString(topText)
+			topFace.Close()
+
+			// topTextHeight 사용 (컴파일러 경고 방지)
+			_ = topTextHeight
+		}
 
 		// 두 번째 텍스트가 있으면 아래에 그리기
 		if secondText != "" {
@@ -320,7 +394,7 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 			// 세 번째 텍스트(발음)가 있으면 아래에 그리기 - 동적 폰트 크기 조절
 			if thirdText != "" {
 				var thirdFace font.Face
-				thirdFontSize := 75.0 // 최대 폰트 크기
+				thirdFontSize := 65.0 // 발음 폰트 크기 (최대)
 
 				for {
 					var faceErr error
@@ -339,7 +413,7 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 
 					if thirdTextWidth > maxTextWidth {
 						thirdFace.Close()
-						thirdFontSize -= 10
+						thirdFontSize -= 5
 						if thirdFontSize < 20 {
 							break
 						}
@@ -370,7 +444,7 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 			// 두 번째 텍스트가 없고 세 번째 텍스트(발음)만 있는 경우
 			// 발음을 두 번째 줄 위치에 표시 - 동적 폰트 크기 조절
 			var thirdFace font.Face
-			thirdFontSize := 75.0 // 최대 폰트 크기
+			thirdFontSize := 65.0 // 발음 폰트 크기 (최대)
 
 			for {
 				var faceErr error
@@ -388,7 +462,7 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 
 				if thirdTextWidth > maxTextWidth {
 					thirdFace.Close()
-					thirdFontSize -= 10
+					thirdFontSize -= 5
 					if thirdFontSize < 20 {
 						break
 					}
