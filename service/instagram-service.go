@@ -54,9 +54,9 @@ func (s *InstagramService) CreateReels(ctx context.Context, targetDate time.Time
 		TemplateType:       enum.TemplateIndividual,
 	}
 
-	// 단어(Word) 타입인 경우 느린 속도 적용
-	if contentType == enum.ContentWord {
-		options.SpeakSpeed = 0.9
+	// 단어(Word) 또는 숙어(Idiom) 타입인 경우 느린 속도 적용
+	if contentType == enum.ContentWord || contentType == enum.ContentIdiom {
+		options.SpeakSpeed = 0.8
 	}
 
 	// 릴스 생성

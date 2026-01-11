@@ -215,7 +215,7 @@ func (s *ImageService) GenerateBasicImagesWithFontSize(
 		if imgWidth > imgHeight { // 가로형 비디오
 			maxTextWidth = int(float64(imgWidth) * 0.8) // 너비의 80%
 		} else { // 세로형 비디오
-			maxTextWidth = int(float64(imgWidth) * 0.7) // 너비의 90%
+			maxTextWidth = int(float64(imgWidth) * 0.7) // 너비의 70%
 		}
 
 		for {

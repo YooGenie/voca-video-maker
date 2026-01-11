@@ -4,7 +4,7 @@
 
 # 리뷰 기능 활성화/비활성화 (기본값: 활성화)
 # 'false'로 설정하면 Pull Request에서 Gemini의 코드 리뷰를 완전히 비활성화합니다.
-disable: false
+disable: true
 
 # 코드 리뷰 댓글의 최소 심각도 임계값
 # Gemini가 Pull Request에 댓글을 게시할 최소 심각도를 설정합니다.
