@@ -130,7 +130,7 @@ func (s *VideoService) CreateGoodVideo(
 	outputPath string,
 ) error {
 	imagePath := config.Config.Paths.Templates.GoodImg
-	duration := 3.0 // 3초
+	duration := 2.5 // 2.5초
 
 	cmd := exec.Command("ffmpeg",
 		"-loop", "1",
